@@ -2,3 +2,5 @@ ipykernel
 matplotlib
 numpy
 pandas
+transformers
+torch
