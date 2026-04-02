@@ -8,6 +8,12 @@
 	// - Non-root user 'vscode' for security
 	"name": "Python 3.12",
 	"image": "mcr.microsoft.com/devcontainers/python:3.12",
+	"runArgs": [
+		"--gpus", "all"
+	],
+	"containerEnv": {
+		"HF_HOME": "${containerWorkspaceFolder}/models"
+	},
 
 	// Custom configuration options
 	"customizations": {
@@ -48,10 +54,10 @@
 
 	// Use 'onCreateCommand' to run commands once when the container is created
 	// This runs only on initial container creation, not on subsequent starts/attaches
-	"onCreateCommand": "",
+	"onCreateCommand": "mkdir models",
 
 	// Use 'postCreateCommand' to run commands once after the container is created
-	"postCreateCommand": "pip install -r requirements.txt",
+	"postCreateCommand": "pip install --upgrade pip &&pip install -r requirements.txt",
 
 	// Use 'postAttachCommand' to run commands each time a user connects to the container
 	// This runs every time VS Code attaches/reconnects to the container
