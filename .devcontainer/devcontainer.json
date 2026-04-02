@@ -1,0 +1,56 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/python
+{
+	// Container definition for a Python 3.12 development environment
+	// Uses Microsoft's official Python devcontainer image which includes:
+	// - Python 3.12 and pip
+	// - Common development tools (git, curl, wget, etc.)
+	// - Non-root user 'vscode' for security
+	"name": "Python 3.12",
+	"image": "mcr.microsoft.com/devcontainers/python:3.12",
+
+	// Custom configuration options
+	"customizations": {
+
+	  // Configure VS code settings and extensions
+	  "vscode": {
+
+		// Use 'settings' to set default VS code values on container create
+		"settings": {
+			// Set the default Python interpreter to the system Python 3.12
+			// This ensures consistency across all users and sessions
+			"python.defaultInterpreterPath": "",
+			
+			// Exclude older Python versions from Jupyter kernel list
+			// Prevents confusion by hiding system Python versions we don't want to use
+			// The container has Python 3.12 as primary, but may have 3.13 for compatibility
+			"jupyter.kernels.excludePythonEnvironments": [
+			],
+			
+			// Disable automatic port forwarding to give explicit control
+			"remote.autoForwardPorts": false,
+			"remote.restoreForwardedPorts": false
+		},
+
+		// Add the IDs of VS code extensions you want to install here
+		// These extensions provide Python development, documentation, and project management support
+		"extensions": [
+		  "-dbaeumer.vscode-eslint",                // Explicitly exclude ESLint (not needed for Python projects)
+		  "ms-python.python",                       // Core Python language support, IntelliSense, debugging
+		  "ms-toolsai.jupyter",                     // Jupyter notebook support for interactive data science
+		  "streetsidesoftware.code-spell-checker"  // Spell checking for code and documentation
+		]
+	  }
+	},
+
+	// Use 'onCreateCommand' to run commands once when the container is created
+	// This runs only on initial container creation, not on subsequent starts/attaches
+	"onCreateCommand": "",
+
+	// Use 'postCreateCommand' to run commands once after the container is created
+	"postCreateCommand": "",
+
+	// Use 'postAttachCommand' to run commands each time a user connects to the container
+	// This runs every time VS Code attaches/reconnects to the container
+	"postAttachCommand": ""
+}
