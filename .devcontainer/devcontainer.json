@@ -17,7 +17,7 @@
 
 		// Use 'settings' to set default VS code values on container create
 		"settings": {
-			// Set the default Python interpreter to the system Python 3.12
+			// Set the default Python interpreter to Python 3.12
 			// This ensures consistency across all users and sessions
 			"python.defaultInterpreterPath": "/usr/local/bin/python",
 			
