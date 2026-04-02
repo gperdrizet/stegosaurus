@@ -19,12 +19,15 @@
 		"settings": {
 			// Set the default Python interpreter to the system Python 3.12
 			// This ensures consistency across all users and sessions
-			"python.defaultInterpreterPath": "",
+			"python.defaultInterpreterPath": "/usr/local/bin/python",
 			
 			// Exclude older Python versions from Jupyter kernel list
 			// Prevents confusion by hiding system Python versions we don't want to use
 			// The container has Python 3.12 as primary, but may have 3.13 for compatibility
 			"jupyter.kernels.excludePythonEnvironments": [
+				"/usr/local/bin/python3",
+				"/usr/bin/python3",
+				"/usr/bin/python3.13"
 			],
 			
 			// Disable automatic port forwarding to give explicit control
