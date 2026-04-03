@@ -55,7 +55,7 @@
 
 	// Use 'onCreateCommand' to run commands once when the container is created
 	// This runs only on initial container creation, not on subsequent starts/attaches
-	"onCreateCommand": "mkdir models",
+	"onCreateCommand": "mkdir -p models",
 
 	// Use 'postCreateCommand' to run commands once after the container is created
 	"postCreateCommand": "pip install --upgrade pip && pip install -r requirements.txt",
