@@ -53,18 +53,26 @@ with gr.Blocks(title='Stegosaurus') as demo:
             )
 
             encode_button = gr.Button('Encode', variant='primary')
-    
+
             cover_output = gr.Textbox(
                 label='Cover text',
-                lines=8,
+                lines=10,
                 interactive=False,
-                show_copy_button=True,
+                elem_id='cover-output',
             )
+
+            copy_button = gr.Button('Copy to clipboard', variant='secondary')
 
             encode_button.click(
                 fn=encode_message,
                 inputs=[prompt_input, message_input],
                 outputs=cover_output,
+            )
+
+            copy_button.click(
+                fn=None,
+                inputs=cover_output,
+                js='(text) => { navigator.clipboard.writeText(text); }',
             )
 
         with gr.Tab('Decode'):
