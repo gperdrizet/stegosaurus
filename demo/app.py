@@ -67,6 +67,7 @@ with gr.Blocks(title='Stegosaurus') as demo:
                 fn=encode_message,
                 inputs=[prompt_input, message_input],
                 outputs=cover_output,
+                show_progress='minimal',
             )
 
             copy_button.click(
@@ -102,6 +103,7 @@ with gr.Blocks(title='Stegosaurus') as demo:
                 fn=decode_message,
                 inputs=[decode_prompt_input, cover_input],
                 outputs=message_output,
+                show_progress='minimal',
             )
 
 
