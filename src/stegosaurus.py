@@ -30,7 +30,7 @@ _MODEL_CONFIG = _ALL_CONFIGS[MODEL_NAME]
 TOP_K = 50          # Number of top tokens to consider at each step
 N_PARTITIONS = 2    # Must be a power of 2; bits per token = log2(N_PARTITIONS)
 PROMPT = _MODEL_CONFIG['default_prompt']
-HEADER_BITS = 32    # Fixed-width header encoding the message length in bits
+EOM = [1, 1, 1, 1, 1, 1, 1, 1]  # 0xFF — never valid UTF-8; marks end of message
 
 # ---------------------------------------------------------------------------
 # Shared model loading (lazy, module-level cache)
@@ -224,19 +224,17 @@ def encode(
     `message` selects a partition of the top-k next-token distribution.
     The highest-probability token in the chosen partition is appended to
     the cover text, embedding the secret bit(s) invisibly.
+
+    A fixed 8-bit EOM marker (0xFF) is appended after the message bits.
+    0xFF is never a valid UTF-8 byte, so it is unambiguous as a sentinel.
     '''
 
     # Load model and tokenizer (cached across calls)
     tokenizer, model, device = _load_model()
 
-    # Encode the message as a list of bits
+    # Encode the message as a list of bits and append the EOM marker
     message_bits = _encode_message(message)
-
-    # Prepend a fixed-width header encoding the number of message bits
-    n_message_bits = len(message_bits)
-    header_bits = [(n_message_bits >> (HEADER_BITS - 1 - i)) & 1
-                   for i in range(HEADER_BITS)]
-    bits = header_bits + message_bits
+    bits = message_bits + EOM
 
     # Calculate how many bits we can encode per token based on the number of partitions
     bits_per_token = n_partitions.bit_length() - 1  # log2(n_partitions)
@@ -295,8 +293,8 @@ def decode(
     to determine which partition each token belongs to, recovering the
     hidden bits and reconstructing the original message.
 
-    The first HEADER_BITS tokens encode the message length, so no
-    out-of-band metadata is required.
+    Reads tokens until the recovered bit stream ends with the 8-bit EOM
+    marker (0xFF). No out-of-band metadata is required.
     '''
 
     # Load model and tokenizer (cached across calls)
@@ -319,16 +317,15 @@ def decode(
     # Collector for recovered bits and context for next-token prediction
     recovered_bits = []
     context = prompt_ids.clone()
-    n_message_bits = None  # learned from header
     prev_token_id = None   # track the last cover token for BPE safety checks
 
     # Iterate over each token in the cover text, determining which partition it belongs to
     for token_id in cover_ids:
 
-        # Stop once we have the header + all message bits
-        total_bits_needed = HEADER_BITS + (n_message_bits if n_message_bits is not None else 0)
-
-        if len(recovered_bits) >= total_bits_needed and n_message_bits is not None:
+        # Stop as soon as the recovered bit stream ends with the EOM marker.
+        # Only check at byte boundaries (EOM is 8 bits; message is always
+        # byte-aligned UTF-8, so a false positive is impossible).
+        if len(recovered_bits) >= 8 and len(recovered_bits) % 8 == 0 and recovered_bits[-8:] == EOM:
             break
 
         # Get the next-token probabilities and their sorted indices for the current context
@@ -360,20 +357,13 @@ def decode(
         # Append the recovered bits from this token to the result list
         recovered_bits.extend(chunk)
 
-        # Once we have enough bits for the header, decode the message length
-        if n_message_bits is None and len(recovered_bits) >= HEADER_BITS:
-            header = recovered_bits[:HEADER_BITS]
-            n_message_bits = int(''.join(str(b) for b in header), 2)
-
         # Extend context with this token for the next step
         token_tensor = torch.tensor([[token_id]], dtype=torch.long)
         context = torch.cat([context, token_tensor], dim=1)
         prev_token_id = token_id
 
-    # Extract the message bits from the recovered bits, skipping the header
-    message_bits = recovered_bits[HEADER_BITS:HEADER_BITS + n_message_bits]
-
-    # Decode the message bits back to a string and return it
+    # Strip the EOM marker and decode the remaining bits to a string
+    message_bits = recovered_bits[:-8]
     return _decode_bits(message_bits)
 
 
