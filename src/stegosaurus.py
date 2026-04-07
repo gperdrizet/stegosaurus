@@ -101,15 +101,18 @@ def _decode_bits(bits: list[int]) -> str:
 def _is_bpe_safe(prev_token_id: int | None, new_token_id: int, tokenizer) -> bool:
     '''
     Return True if appending new_token_id after prev_token_id produces a
-    text that re-tokenises back to exactly [prev_token_id, new_token_id].
+    text that re-tokenizes back to exactly [prev_token_id, new_token_id].
 
     GPT-2 uses byte-level BPE, so adjacent tokens can merge when decoded
     to a string and re-encoded.  Filtering unsafe tokens from the candidate
     set ensures the cover-text token sequence is always recoverable.
     '''
+
     if prev_token_id is None:
         return True
+
     pair_text = tokenizer.decode([prev_token_id, new_token_id])
+
     return tokenizer.encode(pair_text) == [prev_token_id, new_token_id]
 
 
