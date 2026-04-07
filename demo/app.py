@@ -8,13 +8,19 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 import gradio as gr
 from stegosaurus import encode, decode, PROMPT
 
+# BOS token prepended automatically — strip it from the user-facing default
+_BOS = '<|endoftext|>'
+_DEFAULT_PROMPT = PROMPT.removeprefix(_BOS)
+
 
 def encode_message(prompt: str, message: str) -> str:
 
     if not message.strip():
         return 'Please enter a secret message.'
 
-    return encode(message, prompt=prompt)
+    # Always prepend the BOS token regardless of what the user typed
+    full_prompt = _BOS + prompt
+    return encode(message, prompt=full_prompt)
 
 
 def decode_message(cover_text: str) -> str:
@@ -35,7 +41,7 @@ with gr.Blocks(title='Stegosaurus') as demo:
 
             prompt_input = gr.Textbox(
                 label='Prompt',
-                value=PROMPT,
+                value=_DEFAULT_PROMPT,
                 lines=2,
             )
 
