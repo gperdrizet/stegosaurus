@@ -98,10 +98,29 @@ def _decode_bits(bits: list[int]) -> str:
 # Partition function
 # ---------------------------------------------------------------------------
 
-def _partition_top_k(probs, indices, top_k, n_partitions):
+def _is_bpe_safe(prev_token_id: int | None, new_token_id: int, tokenizer) -> bool:
+    '''
+    Return True if appending new_token_id after prev_token_id produces a
+    text that re-tokenises back to exactly [prev_token_id, new_token_id].
+
+    GPT-2 uses byte-level BPE, so adjacent tokens can merge when decoded
+    to a string and re-encoded.  Filtering unsafe tokens from the candidate
+    set ensures the cover-text token sequence is always recoverable.
+    '''
+    if prev_token_id is None:
+        return True
+    pair_text = tokenizer.decode([prev_token_id, new_token_id])
+    return tokenizer.encode(pair_text) == [prev_token_id, new_token_id]
+
+
+def _partition_top_k(probs, indices, top_k, n_partitions, prev_token_id, tokenizer):
     '''
     Partition the top_k tokens into n_partitions bins with approximately
     equal probability mass using greedy assignment.
+
+    Only tokens that are BPE-safe (i.e. do not merge with prev_token_id
+    when decoded to text and re-encoded) are included.  This guarantees
+    that encode and decode produce identical partition assignments.
 
     Returns a list of n_partitions lists, each containing (token_id, prob) pairs.
     '''
@@ -116,6 +135,10 @@ def _partition_top_k(probs, indices, top_k, n_partitions):
 
     # Loop on the top_k tokens in descending order of probability
     for token_id, prob in zip(top_indices.tolist(), top_probs.tolist()):
+
+        # Skip tokens that would merge with the previous token under BPE re-encoding
+        if not _is_bpe_safe(prev_token_id, token_id, tokenizer):
+            continue
 
         # Assign to the partition with the lowest current mass
         target = partition_mass.index(min(partition_mass))
@@ -189,16 +212,18 @@ def encode(
 
     # Iterate over the bits in chunks of bits_per_token, selecting tokens accordingly
     bit_idx = 0
+    prev_token_id = None  # track the last generated token for BPE safety checks
 
     while bit_idx < len(bits):
 
         # Get the next-token probabilities and their sorted indices
         probs, indices = _get_probs(generated_ids, model, device)
-        partitions = _partition_top_k(probs, indices, top_k, n_partitions)
+        partitions = _partition_top_k(probs, indices, top_k, n_partitions,
+                                      prev_token_id, tokenizer)
 
         # Read the next bits_per_token bits as an integer partition index
         chunk = bits[bit_idx:bit_idx + bits_per_token]
-    
+
         # Pad the last chunk with zeros if it's shorter than bits_per_token
         if len(chunk) < bits_per_token:
             chunk += [0] * (bits_per_token - len(chunk))  # pad last chunk
@@ -210,6 +235,7 @@ def encode(
         chosen_id = partitions[partition_idx][0][0]
         chosen_tensor = torch.tensor([[chosen_id]], dtype=torch.long)
         generated_ids = torch.cat([generated_ids, chosen_tensor], dim=1)
+        prev_token_id = chosen_id
 
         # Move to the next chunk of bits
         bit_idx += bits_per_token
@@ -252,19 +278,21 @@ def decode(
     recovered_bits = []
     context = prompt_ids.clone()
     n_message_bits = None  # learned from header
+    prev_token_id = None   # track the last cover token for BPE safety checks
 
     # Iterate over each token in the cover text, determining which partition it belongs to
     for token_id in cover_ids:
 
         # Stop once we have the header + all message bits
         total_bits_needed = HEADER_BITS + (n_message_bits if n_message_bits is not None else 0)
-        
+
         if len(recovered_bits) >= total_bits_needed and n_message_bits is not None:
             break
-        
+
         # Get the next-token probabilities and their sorted indices for the current context
         probs, indices = _get_probs(context, model, device)
-        partitions = _partition_top_k(probs, indices, top_k, n_partitions)
+        partitions = _partition_top_k(probs, indices, top_k, n_partitions,
+                                      prev_token_id, tokenizer)
 
         # Find which partition this token belongs to
         partition_idx = None
@@ -298,6 +326,7 @@ def decode(
         # Extend context with this token for the next step
         token_tensor = torch.tensor([[token_id]], dtype=torch.long)
         context = torch.cat([context, token_tensor], dim=1)
+        prev_token_id = token_id
 
     # Extract the message bits from the recovered bits, skipping the header
     message_bits = recovered_bits[HEADER_BITS:HEADER_BITS + n_message_bits]
@@ -308,14 +337,18 @@ def decode(
 
 if __name__ == '__main__':
 
+    import sys
+
     # Take message or cover text as command line arguments
     parser = argparse.ArgumentParser(description='Command line stegosaurus entry-point')
     parser.add_argument('-e', '--encode', type=str, help='Message to be encoded')
-    parser.add_argument('-d', '--decode', type=str, help='Cover text to be decoded')
+    parser.add_argument('-d', '--decode', action='store_true',
+                        help='Decode cover text read from stdin')
     args = parser.parse_args()
 
     if args.encode:
         print(encode(args.encode))
 
     if args.decode:
-        print(decode(args.decode))
+        cover_text = sys.stdin.read().rstrip('\n')
+        print(decode(cover_text))
