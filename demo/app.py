@@ -23,12 +23,13 @@ def encode_message(prompt: str, message: str) -> str:
     return encode(message, prompt=full_prompt)
 
 
-def decode_message(cover_text: str) -> str:
+def decode_message(prompt: str, cover_text: str) -> str:
 
     if not cover_text.strip():
         return 'Please enter cover text to decode.'
 
-    return decode(cover_text)
+    full_prompt = _BOS + prompt
+    return decode(cover_text, prompt=full_prompt)
 
 
 with gr.Blocks(title='Stegosaurus') as demo:
@@ -57,6 +58,7 @@ with gr.Blocks(title='Stegosaurus') as demo:
                 label='Cover text',
                 lines=8,
                 interactive=False,
+                show_copy_button=True,
             )
 
             encode_button.click(
@@ -66,6 +68,12 @@ with gr.Blocks(title='Stegosaurus') as demo:
             )
 
         with gr.Tab('Decode'):
+
+            decode_prompt_input = gr.Textbox(
+                label='Prompt',
+                value=_DEFAULT_PROMPT,
+                lines=2,
+            )
 
             cover_input = gr.Textbox(
                 label='Cover text',
@@ -83,7 +91,7 @@ with gr.Blocks(title='Stegosaurus') as demo:
 
             decode_button.click(
                 fn=decode_message,
-                inputs=cover_input,
+                inputs=[decode_prompt_input, cover_input],
                 outputs=message_output,
             )
 
