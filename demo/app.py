@@ -8,28 +8,23 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 import gradio as gr
 from stegosaurus import encode, decode, PROMPT
 
-# BOS token prepended automatically — strip it from the user-facing default
-_BOS = '<|endoftext|>'
-_DEFAULT_PROMPT = PROMPT.removeprefix(_BOS)
+_DEFAULT_PROMPT = PROMPT
 
 
-def encode_message(prompt: str, message: str) -> str:
+def encode_message(prompt: str, message: str) -> tuple[str, str]:
 
     if not message.strip():
-        return 'Please enter a secret message.'
+        return '', 'Please enter a secret message.'
 
-    # Always prepend the BOS token regardless of what the user typed
-    full_prompt = _BOS + prompt
-    return encode(message, prompt=full_prompt)
+    return encode(message, prompt=prompt), ''
 
 
-def decode_message(prompt: str, cover_text: str) -> str:
+def decode_message(prompt: str, cover_text: str) -> tuple[str, str]:
 
     if not cover_text.strip():
-        return 'Please enter cover text to decode.'
+        return '', 'Please enter cover text to decode.'
 
-    full_prompt = _BOS + prompt
-    return decode(cover_text, prompt=full_prompt)
+    return decode(cover_text, prompt=prompt), ''
 
 
 with gr.Blocks(title='Stegosaurus') as demo:
@@ -54,6 +49,8 @@ with gr.Blocks(title='Stegosaurus') as demo:
 
             encode_button = gr.Button('Encode', variant='primary')
 
+            encode_status = gr.Markdown('', visible=True)
+
             cover_output = gr.Textbox(
                 label='Cover text',
                 lines=10,
@@ -64,10 +61,15 @@ with gr.Blocks(title='Stegosaurus') as demo:
             copy_button = gr.Button('Copy to clipboard', variant='secondary')
 
             encode_button.click(
+                fn=lambda p, m: 'Encoding…',
+                inputs=[prompt_input, message_input],
+                outputs=encode_status,
+                queue=False,
+            ).then(
                 fn=encode_message,
                 inputs=[prompt_input, message_input],
-                outputs=cover_output,
-                show_progress='minimal',
+                outputs=[cover_output, encode_status],
+                show_progress='hidden',
             )
 
             copy_button.click(
@@ -93,6 +95,8 @@ with gr.Blocks(title='Stegosaurus') as demo:
 
             decode_button = gr.Button('Decode', variant='primary')
 
+            decode_status = gr.Markdown('', visible=True)
+
             message_output = gr.Textbox(
                 label='Secret message',
                 lines=2,
@@ -100,10 +104,15 @@ with gr.Blocks(title='Stegosaurus') as demo:
             )
 
             decode_button.click(
+                fn=lambda p, c: 'Decoding…',
+                inputs=[decode_prompt_input, cover_input],
+                outputs=decode_status,
+                queue=False,
+            ).then(
                 fn=decode_message,
                 inputs=[decode_prompt_input, cover_input],
-                outputs=message_output,
-                show_progress='minimal',
+                outputs=[message_output, decode_status],
+                show_progress='hidden',
             )
 
 

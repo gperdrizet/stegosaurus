@@ -1,6 +1,8 @@
 '''Main module to encode and decode messages using the Stegosaurus algorithm.'''
 
 import argparse
+import json
+import os
 
 import torch
 import torch.nn.functional as F
@@ -10,10 +12,24 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 # Configuration
 # ---------------------------------------------------------------------------
 
-MODEL_NAME = 'openai-community/gpt2-large'
+MODEL_NAME = 'google/gemma-3-1b-pt'
+
+# Load per-model configuration from the JSON file next to this module.
+_CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'model_config.json')
+with open(_CONFIG_PATH) as _f:
+    _ALL_CONFIGS = json.load(_f)
+
+if MODEL_NAME not in _ALL_CONFIGS:
+    raise ValueError(
+        f'Model "{MODEL_NAME}" not found in model_config.json. '
+        f'Supported models: {list(_ALL_CONFIGS)}'
+    )
+
+_MODEL_CONFIG = _ALL_CONFIGS[MODEL_NAME]
+
 TOP_K = 50          # Number of top tokens to consider at each step
 N_PARTITIONS = 2    # Must be a power of 2; bits per token = log2(N_PARTITIONS)
-PROMPT = '<|endoftext|>A turtle and a bird were walking in the forest one day. The turtle said, "'
+PROMPT = _MODEL_CONFIG['default_prompt']
 HEADER_BITS = 32    # Fixed-width header encoding the message length in bits
 
 # ---------------------------------------------------------------------------
@@ -35,9 +51,21 @@ def _load_model():
         # Set device to GPU if available, otherwise CPU
         _device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-        # Load model and tokenizer from Hugging Face
-        _tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-        _model = AutoModelForCausalLM.from_pretrained(MODEL_NAME).to(_device)
+        # Get correct torch dtype for this model from the config
+        _dtype = getattr(torch, _MODEL_CONFIG.get('dtype', 'float16'))
+
+        # Load the tokenizer
+        _tokenizer = AutoTokenizer.from_pretrained(
+            MODEL_NAME,
+            trust_remote_code=_MODEL_CONFIG['trust_remote_code'],
+        )
+
+        # Load the model
+        _model = AutoModelForCausalLM.from_pretrained(
+            MODEL_NAME,
+            dtype=_dtype,
+            trust_remote_code=_MODEL_CONFIG['trust_remote_code'],
+        ).to(_device)
 
         # Put model in evaluation mode (disables dropout, etc.)
         _model.eval()
@@ -113,7 +141,11 @@ def _is_bpe_safe(prev_token_id: int | None, new_token_id: int, tokenizer) -> boo
 
     pair_text = tokenizer.decode([prev_token_id, new_token_id])
 
-    return tokenizer.encode(pair_text) == [prev_token_id, new_token_id]
+    # add_special_tokens=False prevents the tokenizer from prepending a BOS
+    # token, which would make the re-encoded list longer than the pair.
+    # Whether this matters is model-specific (see model_config.json).
+    ats = _MODEL_CONFIG['bpe_check_add_special_tokens']
+    return tokenizer.encode(pair_text, add_special_tokens=ats) == [prev_token_id, new_token_id]
 
 
 def _partition_top_k(probs, indices, top_k, n_partitions, prev_token_id, tokenizer):
@@ -275,7 +307,14 @@ def decode(
 
     # Tokenize the prompt and cover text
     prompt_ids = tokenizer.encode(prompt, return_tensors='pt')
-    cover_ids = tokenizer.encode(cover_text, return_tensors='pt')[0].tolist()
+    # The prompt is tokenized with add_special_tokens=True (default) so the
+    # model's BOS token is prepended once. The cover text must not get another
+    # BOS, so we use the per-model setting from model_config.json.
+    cover_ids = tokenizer.encode(
+        cover_text,
+        add_special_tokens=_MODEL_CONFIG['cover_add_special_tokens'],
+        return_tensors='pt',
+    )[0].tolist()
 
     # Collector for recovered bits and context for next-token prediction
     recovered_bits = []
