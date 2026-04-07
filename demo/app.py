@@ -78,7 +78,8 @@ with gr.Blocks(title='Stegosaurus') as demo:
             cover_input = gr.Textbox(
                 label='Cover text',
                 placeholder='Paste cover text to decode...',
-                lines=8,
+                lines=3,
+                max_lines=3,
             )
 
             decode_button = gr.Button('Decode', variant='primary')
