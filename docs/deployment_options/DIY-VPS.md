@@ -2,21 +2,19 @@
 
 ## Concept
 
-Run the model on your local machine using your own GPU. A cheap VPS acts as a public reverse proxy, connected to the local machine via a WireGuard tunnel. The VPS never touches the model — it just forwards traffic.
+Run the model on your local machine using your own GPU. A cheap VPS acts as a public reverse proxy, connected to the local machine via a WireGuard tunnel. The VPS never touches the model - it just forwards traffic.
 
 ```
 User → VPS (nginx + TLS, public IP) → WireGuard tunnel → Local machine (Gradio + GPU)
 ```
 
-- **Compute cost:** ~$3–6/mo (VPS only) — local GPU is free
+- **Compute cost:** ~$3–6/mo (VPS only) - local GPU is free
 - **Encode latency:** ~2s (depends on local GPU)
 - **Availability:** Local machine must be on and connected
 
----
-
 ## 1. Provision a VPS
 
-Any small VPS works — 1 vCPU / 1 GB RAM is sufficient. The model doesn't run here.
+Any small VPS works - 1 vCPU / 1 GB RAM is sufficient. The model doesn't run here.
 
 | Provider | Plan | Cost |
 |---|---|---|
@@ -25,8 +23,6 @@ Any small VPS works — 1 vCPU / 1 GB RAM is sufficient. The model doesn't run h
 | Vultr / Linode | Nanode / Shared | ~$5/mo |
 
 Open ports in the VPS firewall: **80/TCP**, **443/TCP**, **51820/UDP** (WireGuard).
-
----
 
 ## 2. Set up WireGuard
 
@@ -82,8 +78,6 @@ ping 10.0.0.1   # from local → VPS
 ping 10.0.0.2   # from VPS → local
 ```
 
----
-
 ## 3. Run the app locally
 
 Update `demo/app.py` to bind on all interfaces and read port from the environment:
@@ -96,8 +90,6 @@ Then start the app:
 cd /workspaces/stegosaurus
 python demo/app.py
 ```
-
----
 
 ## 4. Configure nginx on the VPS
 
@@ -138,9 +130,7 @@ certbot --nginx -d yourdomain.com
 
 Certbot modifies the nginx config automatically and sets up auto-renewal. Point your domain's A record at the VPS public IP before running this.
 
----
-
-## Common Pitfalls
+## Common pitfalls
 
 | Symptom | Cause | Fix |
 |---|---|---|

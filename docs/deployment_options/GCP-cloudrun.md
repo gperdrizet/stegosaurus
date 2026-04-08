@@ -9,11 +9,9 @@ User → Cloud Run URL (*.run.app) → Cloud Run Service (Gradio, port 8080)
 ```
 
 - **Compute:** Cloud Run (serverless, scales to zero), CPU-only
-- **Model:** `Qwen/Qwen2.5-1.5B` — public (no HF token), ~6 GB float32
+- **Model:** `Qwen/Qwen2.5-1.5B` - public (no HF token), ~6 GB float32
 - **Task size:** 4 vCPU / 16 GB RAM
-- **Cost:** ~$0.002/request (30s encode) — $0 when idle; ~$0.17/hr for a warm instance
-
----
+- **Cost:** ~$0.002/request (30s encode) - $0 when idle; ~$0.17/hr for a warm instance
 
 ## Phase 1 - Code changes
 
@@ -65,7 +63,7 @@ gcloud run deploy stegosaurus \
   --set-env-vars HF_HOME=/tmp/huggingface
 ```
 
-Cloud Run immediately provides a `https://*.run.app` URL with managed TLS — no load balancer or certificate setup required.
+Cloud Run immediately provides a `https://*.run.app` URL with managed TLS - no load balancer or certificate setup required.
 
 ### Custom domain (optional)
 ```bash
@@ -77,11 +75,10 @@ gcloud run domain-mappings create \
 
 Add the CNAME or A records printed by the command to your DNS provider. GCP provisions and renews the TLS certificate automatically.
 
----
 
 ## Cold start & caching
 
-The model (~2 GB) downloads from Hugging Face when a new instance starts (~2–3 min first request). It is cached in `/tmp/huggingface` for the lifetime of the instance.
+The model (~2 GB) downloads from Hugging Face when a new instance starts (~2-3 min first request). It is cached in `/tmp/huggingface` for the lifetime of the instance.
 
 **To keep one instance warm** (eliminates cold starts):
 ```bash
@@ -91,13 +88,12 @@ gcloud run services update stegosaurus \
 ```
 This adds ~$0.17/hr for a continuously running instance.
 
-**To persist the cache across restarts**, mount a Cloud Storage FUSE volume at `HF_HOME` — avoids the 2–3 min download on every cold start.
+**To persist the cache across restarts**, mount a Cloud Storage FUSE volume at `HF_HOME` - avoids the 2-3 min download on every cold start.
 
----
 
 ## GPU option (Cloud Run with NVIDIA L4)
 
-Cloud Run supports GPUs since 2024. Adding `--gpu 1` gives you an NVIDIA L4 (24 GB VRAM), dropping encode latency from ~30s to ~2s — comparable to the EC2 g4dn.xlarge plan, but fully serverless.
+Cloud Run supports GPUs since 2024. Adding `--gpu 1` gives you an NVIDIA L4 (24 GB VRAM), dropping encode latency from ~30s to ~2s - comparable to the EC2 g4dn.xlarge plan, but fully serverless.
 
 ```bash
 gcloud run deploy stegosaurus \
@@ -113,13 +109,12 @@ gcloud run deploy stegosaurus \
   --set-env-vars HF_HOME=/tmp/huggingface
 ```
 
-With GPU, keep `"dtype": "bfloat16"` in `model_config.json` — no change needed from the dev config. Use a CUDA-enabled Docker image (same as the EC2 plan: install `torch==2.11.0` from `https://download.pytorch.org/whl/cu126`).
+With GPU, keep `"dtype": "bfloat16"` in `model_config.json` - no change needed from the dev config. Use a CUDA-enabled Docker image (same as the EC2 plan: install `torch==2.11.0` from `https://download.pytorch.org/whl/cu126`).
 
 GPU Cloud Run availability is limited to specific regions (currently `us-central1`, `asia-northeast1`, others). Check the [Cloud Run GPU docs](https://cloud.google.com/run/docs/configuring/services/gpu) for the current list.
 
-**Cold start caveat:** GPU instances have a significantly longer cold start than CPU — container boot + GPU allocation + CUDA runtime init + model download adds up to ~5–7 min. This makes scale-to-zero impractical for a demo. Set `--min-instances 1` to keep one instance warm at all times (NVIDIA L4 costs ~$0.70/hr).
+**Cold start caveat:** GPU instances have a significantly longer cold start than CPU - container boot + GPU allocation + CUDA runtime init + model download adds up to ~5–7 min. This makes scale-to-zero impractical for a demo. Set `--min-instances 1` to keep one instance warm at all times (NVIDIA L4 costs ~$0.70/hr).
 
----
 
 ## Smoke test
 

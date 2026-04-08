@@ -9,17 +9,13 @@ User → Route 53 / DNS → ACM (TLS) → ALB → ECS Task on EC2 g4dn.xlarge (G
 ```
 
 - **Compute:** ECS EC2 launch type on `g4dn.xlarge` (T4 GPU), always-on
-- **Model:** `Qwen/Qwen2.5-1.5B` in bfloat16 — fits in T4's 16 GB VRAM
+- **Model:** `Qwen/Qwen2.5-1.5B` in bfloat16 - fits in T4's 16 GB VRAM
 - **Encode latency:** ~2s (vs ~30s on CPU Fargate)
 - **Cost:** ~$0.53/hr on-demand, ~$0.16/hr spot
-
----
 
 ## How it differs from Fargate
 
 The Docker image, task definition structure, ECR push, and ALB setup are identical to the Fargate plan.
-
----
 
 ## Phase 1 - Code changes
 
@@ -60,7 +56,7 @@ Add an **EC2 instance profile** with `AmazonEC2ContainerServiceforEC2Role` so th
 
 ### ECS cluster
 - Create an **EC2 cluster** (not Fargate) in the ECS console
-- Add a `g4dn.xlarge` instance using the **Deep Learning Base OSS Nvidia Driver AMI** (search in AMI catalog — has CUDA drivers pre-installed)
+- Add a `g4dn.xlarge` instance using the **Deep Learning Base OSS Nvidia Driver AMI** (search in AMI catalog - has CUDA drivers pre-installed)
 - Attach the EC2 instance profile created above
 
 ### Task definition
@@ -72,9 +68,8 @@ Add an **EC2 instance profile** with `AmazonEC2ContainerServiceforEC2Role` so th
 - Log driver: `awslogs` → `/ecs/stegosaurus`
 
 ### ECS service, ALB, and custom domain
-Identical to the Fargate plan — create an ALB, target group on port 7860, attach to the ECS service, add ACM cert and Route 53 alias for a custom domain.
+Identical to the Fargate plan - create an ALB, target group on port 7860, attach to the ECS service, add ACM cert and Route 53 alias for a custom domain.
 
----
 
 ## Using Spot instances (cost saving)
 
@@ -86,15 +81,11 @@ Replace the On-Demand instance with a Spot instance to cut costs by ~70%:
 
 At ~$0.16/hr Spot, the GPU option becomes cheaper than on-demand CPU Fargate.
 
----
-
 ## Cold start & caching
 
-With a running EC2 instance, the model is loaded into GPU memory once and stays there — no per-request cold start. The first load after instance boot takes ~1–2 min.
+With a running EC2 instance, the model is loaded into GPU memory once and stays there - no per-request cold start. The first load after instance boot takes ~1–2 min.
 
 To persist model weights across instance reboots, mount an EFS volume at `HF_HOME`.
-
----
 
 ## Smoke test
 

@@ -9,11 +9,9 @@ User → Route 53 / DNS → ACM (TLS) → ALB → ECS Fargate Task (Gradio, port
 ```
 
 - **Compute:** Fargate (serverless, no EC2 to manage), CPU-only
-- **Model:** `Qwen/Qwen2.5-1.5B` — public (no HF token), fast on CPU, ~6 GB float32
+- **Model:** `Qwen/Qwen2.5-1.5B` - public (no HF token), fast on CPU, ~6 GB float32
 - **Task size:** 4 vCPU / 16 GB RAM
 - **Cost:** ~$0.29/hr (task) + ~$16/mo (ALB, if using a custom domain)
-
----
 
 ## Phase 1 - Code changes
 
@@ -67,15 +65,13 @@ aws logs create-log-group --log-group-name /ecs/stegosaurus
 - Without domain: `assignPublicIp=ENABLED`, access via task public IP
 - With domain: attach ALB target group (see below)
 
----
-
 ## Adding a custom domain (optional)
 
 Additional resources required:
 
 | Resource | Purpose |
 |---|---|
-| ACM Certificate | TLS for your domain (free) — validate via DNS |
+| ACM Certificate | TLS for your domain (free) - validate via DNS |
 | Application Load Balancer | Stable DNS target, TLS termination (HTTPS 443 → HTTP 7860) |
 | Target Group | Routes ALB traffic to the ECS service |
 | Route 53 A alias (or CNAME) | `yourdomain.com` → ALB DNS name |
@@ -83,13 +79,9 @@ Additional resources required:
 ALB security group: allow TCP 443 inbound from `0.0.0.0/0`.
 Container security group: allow TCP 7860 inbound from the ALB security group only (not the public internet).
 
----
-
 ## Cold start & caching
 
 The model (~2 GB) downloads from Hugging Face on the first request after a new task starts (~2–3 min). It is cached in `/tmp/huggingface` for the lifetime of the task. To persist the cache across restarts, mount an EFS volume at `HF_HOME`.
-
----
 
 ## Smoke test
 

@@ -46,7 +46,7 @@ User → Managed platform / VPS (nginx + TLS) → Container (Gradio + model)
 - Scaling the GPU backend means scaling the whole app
 - No auth, no persistent user state
 
-The code doesn't change — just the packaging and where it runs. This is the natural next step after HF Spaces when you want a real URL and better control.
+The code doesn't change - just the packaging and where it runs. This is the natural next step after HF Spaces when you want a real URL and better control.
 
 ## Act 3 - Microservices
 
