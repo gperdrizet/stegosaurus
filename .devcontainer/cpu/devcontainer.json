@@ -5,9 +5,10 @@
 	// Uses Microsoft's official Python devcontainer image which includes:
 	// - Python 3.12 and pip
 	// - Common development tools (git, curl, wget, etc.)
-	"name": "Python 3.12",
+	"name": "Python 3.12 (CPU / Codespaces)",
 	"image": "mcr.microsoft.com/devcontainers/python:3.12",
-	"runArgs": ["--gpus", "all"],                        // Pass GPU into container
+	// No GPU passthrough - works on any machine and on GitHub Codespaces.
+	// For local GPU access, use the 'gpu' configuration instead.
 	"containerEnv": {
 		"HF_HOME": "${containerWorkspaceFolder}/models", // Download from HF to models/ directory
 		"HF_HUB_DISABLE_PROGRESS_BARS": "1"              // Disable HF progress bars
