@@ -44,8 +44,10 @@ Edit `src/stegosaurus.py` to change the active model:
 MODEL_NAME = 'Qwen/Qwen2.5-1.5B'  # or any model listed in src/model_config.json
 ```
 
-Supported models: `google/gemma-3-1b-pt`, `Qwen/Qwen2.5-1.5B`, `Qwen/Qwen2.5-3B`, `meta-llama/Llama-3.2-3B`. Per-model tokenizer settings are in `src/model_config.json`.
+Supported models:
+- `google/gemma-3-1b-pt`,
+- `Qwen/Qwen2.5-1.5B`,
+- `Qwen/Qwen2.5-3B`,
+- `meta-llama/Llama-3.2-3B`.
 
-## Deployment
-
-See [docs/deployment.md](docs/deployment.md) for an overview of deployment options, from a Hugging Face Spaces demo to a containerized cloud or VPS deployment.
+Per-model tokenizer settings are in `src/model_config.json`.
