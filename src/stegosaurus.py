@@ -187,13 +187,18 @@ def _partition_top_k(probs, indices, top_k, n_partitions, prev_token_id, tokeniz
 # Next-token helpers
 # ---------------------------------------------------------------------------
 
-def _get_probs(input_ids, model, device):
-    '''Run a forward pass and return (sorted_probs, sorted_indices) for
-    the next token.'''
+def _get_probs(input_ids, model, device, past_key_values=None):
+    '''Run a forward pass and return (sorted_probs, sorted_indices, past_key_values)
+    for the next token.
+
+    Pass past_key_values from the previous call to avoid recomputing attention
+    over the full context at every step. When provided, input_ids should contain
+    only the single new token rather than the entire sequence.
+    '''
 
     # Run single forward pass with gradient accumulation turned off
     with torch.no_grad():
-        outputs = model(input_ids.to(device))
+        outputs = model(input_ids.to(device), past_key_values=past_key_values, use_cache=True)
 
     # Get the logits from the last token, convert to double precision
     logits = outputs.logits[0, -1, :].double()
@@ -204,7 +209,7 @@ def _get_probs(input_ids, model, device):
     # Convert to probabilities
     probs = F.softmax(logits, dim=0)
 
-    return probs, indices
+    return probs, indices, outputs.past_key_values
 
 
 # ---------------------------------------------------------------------------
@@ -239,18 +244,18 @@ def encode(
     # Calculate how many bits we can encode per token based on the number of partitions
     bits_per_token = n_partitions.bit_length() - 1  # log2(n_partitions)
 
-    # Tokenize the prompt and initialize the generated token sequence
+    # Tokenize the prompt and prime the KV cache; get probs for the first token
     input_ids = tokenizer.encode(prompt, return_tensors='pt')
-    generated_ids = input_ids.clone()
+    probs, indices, past_key_values = _get_probs(input_ids, model, device)
+
+    cover_ids = []
+    prev_token_id = None  # track the last generated token for BPE safety checks
 
     # Iterate over the bits in chunks of bits_per_token, selecting tokens accordingly
     bit_idx = 0
-    prev_token_id = None  # track the last generated token for BPE safety checks
 
     while bit_idx < len(bits):
 
-        # Get the next-token probabilities and their sorted indices
-        probs, indices = _get_probs(generated_ids, model, device)
         partitions = _partition_top_k(probs, indices, top_k, n_partitions,
                                       prev_token_id, tokenizer)
 
@@ -266,16 +271,16 @@ def encode(
 
         # Pick the highest-probability token in the selected partition
         chosen_id = partitions[partition_idx][0][0]
-        chosen_tensor = torch.tensor([[chosen_id]], dtype=torch.long)
-        generated_ids = torch.cat([generated_ids, chosen_tensor], dim=1)
+        cover_ids.append(chosen_id)
         prev_token_id = chosen_id
 
         # Move to the next chunk of bits
         bit_idx += bits_per_token
 
-    # Decode everything after the prompt
-    prompt_len = input_ids.shape[1]
-    cover_ids = generated_ids[0, prompt_len:].tolist()
+        # Extend the KV cache with the chosen token for the next iteration
+        if bit_idx < len(bits):
+            next_input = torch.tensor([[chosen_id]], dtype=torch.long)
+            probs, indices, past_key_values = _get_probs(next_input, model, device, past_key_values)
 
     return tokenizer.decode(cover_ids)
 
@@ -314,22 +319,14 @@ def decode(
         return_tensors='pt',
     )[0].tolist()
 
-    # Collector for recovered bits and context for next-token prediction
+    # Prime the KV cache with the prompt; get probs for the first cover token
     recovered_bits = []
-    context = prompt_ids.clone()
     prev_token_id = None   # track the last cover token for BPE safety checks
+    probs, indices, past_key_values = _get_probs(prompt_ids, model, device)
 
     # Iterate over each token in the cover text, determining which partition it belongs to
     for token_id in cover_ids:
 
-        # Stop as soon as the recovered bit stream ends with the EOM marker.
-        # Only check at byte boundaries (EOM is 8 bits; message is always
-        # byte-aligned UTF-8, so a false positive is impossible).
-        if len(recovered_bits) >= 8 and len(recovered_bits) % 8 == 0 and recovered_bits[-8:] == EOM:
-            break
-
-        # Get the next-token probabilities and their sorted indices for the current context
-        probs, indices = _get_probs(context, model, device)
         partitions = _partition_top_k(probs, indices, top_k, n_partitions,
                                       prev_token_id, tokenizer)
 
@@ -356,11 +353,17 @@ def decode(
 
         # Append the recovered bits from this token to the result list
         recovered_bits.extend(chunk)
-
-        # Extend context with this token for the next step
-        token_tensor = torch.tensor([[token_id]], dtype=torch.long)
-        context = torch.cat([context, token_tensor], dim=1)
         prev_token_id = token_id
+
+        # Stop as soon as the recovered bit stream ends with the EOM marker.
+        # Only check at byte boundaries (EOM is 8 bits; message is always
+        # byte-aligned UTF-8, so a false positive is impossible).
+        if len(recovered_bits) >= 8 and len(recovered_bits) % 8 == 0 and recovered_bits[-8:] == EOM:
+            break
+
+        # Extend the KV cache with this token for the next step
+        next_input = torch.tensor([[token_id]], dtype=torch.long)
+        probs, indices, past_key_values = _get_probs(next_input, model, device, past_key_values)
 
     # Strip the EOM marker and decode the remaining bits to a string
     message_bits = recovered_bits[:-8]
