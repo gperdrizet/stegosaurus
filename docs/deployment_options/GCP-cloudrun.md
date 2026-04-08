@@ -23,19 +23,105 @@ User → Cloud Run URL (*.run.app) → Cloud Run Service (Gradio, port 8080)
 
 ## Phase 2 - Docker image
 
-1. Create `deploy/requirements.txt` — CPU-only deps (no CUDA index URL, no Jupyter/matplotlib)
-2. Create `Dockerfile` — `python:3.12-slim`, install CPU torch from `https://download.pytorch.org/whl/cpu`, copy `src/` and `demo/`, set `ENV PORT=8080` and `HF_HOME=/tmp/huggingface`, `EXPOSE 8080`
-3. Create `.dockerignore` — exclude `models/`, `notebooks/`, `.git/`, `.vscode/`
+1. Create `deploy/requirements.txt` - CPU-only deps (no CUDA index URL, no Jupyter/matplotlib)
+2. Create `Dockerfile` - `python:3.12-slim`, install CPU torch from `https://download.pytorch.org/whl/cpu`, copy `src/` and `demo/`, set `ENV PORT=8080` and `HF_HOME=/tmp/huggingface`, `EXPOSE 8080`
+3. Create `.dockerignore` - exclude `models/`, `notebooks/`, `.git/`, `.vscode/`
 4. Build and smoke-test locally: `docker build -t stegosaurus . && docker run -p 8080:8080 stegosaurus`
 
-## Phase 3 - GCP setup (CLI)
+## Phase 3 - GCP setup
 
-### Enable APIs
+Two options: the web console or the `gcloud` CLI. Both produce identical results - use whichever you prefer.
+
+`<region>` appears throughout these instructions. Choose one and use it consistently for both Artifact Registry and Cloud Run - they must match. Common choices:
+
+| Region | Location |
+|---|---|
+| `us-central1` | Iowa (also the only US region with Cloud Run GPU) |
+| `us-east4` | Northern Virginia |
+| `us-west1` | Oregon |
+| `europe-west1` | Belgium |
+| `europe-west2` | London |
+| `europe-west4` | Netherlands |
+| `asia-east1` | Taiwan |
+| `asia-northeast1` | Tokyo |
+| `asia-southeast1` | Singapore |
+
+For the full list: `gcloud run regions list`
+
+### Option A - Console (web UI)
+
+**Create a project**
+1. Go to [console.cloud.google.com](https://console.cloud.google.com)
+2. Click the project selector at the top of the page, then **New project**
+3. Enter a project name (e.g. `stegosaurus`), note the auto-generated **Project ID** - this is what you'll use as `<project>` in later steps
+4. Click **Create** and wait for the project to be provisioned, then select it from the project selector
+
+**Enable APIs**
+1. Go to [console.cloud.google.com](https://console.cloud.google.com) and select your project
+2. Navigate to **APIs & Services > Enable APIs and services**
+3. Search for and enable: **Cloud Run API**, **Artifact Registry API**
+
+**Create an Artifact Registry repository**
+1. Navigate to **Artifact Registry > Repositories > Create repository**
+2. Name: `stegosaurus`, Format: `Docker`, Location: choose a region, then click **Create**
+
+**Push the image**
+
+The console cannot push images directly - use Docker locally:
+```bash
+gcloud auth configure-docker <region>-docker.pkg.dev
+
+docker tag stegosaurus \
+  <region>-docker.pkg.dev/<project>/stegosaurus/app:latest
+
+docker push \
+  <region>-docker.pkg.dev/<project>/stegosaurus/app:latest
+```
+
+**Deploy the service**
+1. Navigate to **Cloud Run > Create service**
+2. Select **Deploy one revision from an existing container image**, click **Select** and pick the image you just pushed
+3. Service name: `stegosaurus`, Region: same as your repository
+4. Under **Container, networking, security**:
+   - Container port: `8080`
+   - Memory: `16 GiB`, CPU: `4`
+   - Request timeout: `300`
+   - Maximum concurrent requests per instance: `1`
+   - Environment variable: `HF_HOME` = `/tmp/huggingface`
+5. Under **Authentication**, select **Allow unauthenticated invocations**
+6. Click **Create**
+
+Cloud Run displays the service URL (`https://*.run.app`) once the deployment completes.
+
+**Custom domain (optional)**
+1. Navigate to **Cloud Run > your service > Manage custom domains > Add mapping**
+2. Enter your domain and follow the DNS record instructions shown
+3. Add the CNAME or A records to your DNS provider - GCP provisions and renews the TLS certificate automatically
+
+**Keep one instance warm (optional)**
+1. Navigate to **Cloud Run > your service > Edit & deploy new revision**
+2. Under **Capacity**, set **Minimum number of instances** to `1`
+3. Click **Deploy** - this adds ~$0.17/hr for a continuously running instance
+
+### Option B - CLI
+
+**Create a project**
+```bash
+gcloud projects create <project-id> --name="Stegosaurus"
+gcloud config set project <project-id>
+```
+
+You'll also need to link a billing account. Find your billing account ID at [console.cloud.google.com/billing](https://console.cloud.google.com/billing), then:
+```bash
+gcloud billing projects link <project-id> --billing-account=<billing-account-id>
+```
+
+**Enable APIs**
 ```bash
 gcloud services enable run.googleapis.com artifactregistry.googleapis.com
 ```
 
-### Artifact Registry
+**Artifact Registry**
 ```bash
 gcloud artifacts repositories create stegosaurus \
   --repository-format=docker \
@@ -50,7 +136,7 @@ docker push \
   <region>-docker.pkg.dev/<project>/stegosaurus/app:latest
 ```
 
-### Deploy
+**Deploy**
 ```bash
 gcloud run deploy stegosaurus \
   --image <region>-docker.pkg.dev/<project>/stegosaurus/app:latest \
@@ -65,7 +151,7 @@ gcloud run deploy stegosaurus \
 
 Cloud Run immediately provides a `https://*.run.app` URL with managed TLS - no load balancer or certificate setup required.
 
-### Custom domain (optional)
+**Custom domain (optional)**
 ```bash
 gcloud run domain-mappings create \
   --service stegosaurus \
@@ -75,18 +161,19 @@ gcloud run domain-mappings create \
 
 Add the CNAME or A records printed by the command to your DNS provider. GCP provisions and renews the TLS certificate automatically.
 
-
-## Cold start & caching
-
-The model (~2 GB) downloads from Hugging Face when a new instance starts (~2-3 min first request). It is cached in `/tmp/huggingface` for the lifetime of the instance.
-
-**To keep one instance warm** (eliminates cold starts):
+**Keep one instance warm (optional)**
 ```bash
 gcloud run services update stegosaurus \
   --min-instances 1 \
   --region <region>
 ```
-This adds ~$0.17/hr for a continuously running instance.
+
+
+## Cold start & caching
+
+The model (~2 GB) downloads from Hugging Face when a new instance starts (~2-3 min first request). It is cached in `/tmp/huggingface` for the lifetime of the instance.
+
+To keep one instance warm and eliminate cold starts, see the "Keep one instance warm" step in phase 3 above. This adds ~$0.17/hr for a continuously running instance.
 
 **To persist the cache across restarts**, mount a Cloud Storage FUSE volume at `HF_HOME` - avoids the 2-3 min download on every cold start.
 

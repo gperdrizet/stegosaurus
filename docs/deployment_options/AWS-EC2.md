@@ -47,10 +47,10 @@ Everything else (copy `src/`, `demo/`, set `HF_HOME`, `EXPOSE 7860`) is the same
 ## Phase 3 - AWS setup
 
 ### ECR
-Same as Fargate — create repo, authenticate, tag, push.
+Same as Fargate - create repo, authenticate, tag, push.
 
 ### IAM
-Same as Fargate — ECS task execution role with `AmazonECSTaskExecutionRolePolicy`.
+Same as Fargate - ECS task execution role with `AmazonECSTaskExecutionRolePolicy`.
 
 Add an **EC2 instance profile** with `AmazonEC2ContainerServiceforEC2Role` so the instance can register with the ECS cluster.
 

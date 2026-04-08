@@ -23,9 +23,9 @@ User → Route 53 / DNS → ACM (TLS) → ALB → ECS Fargate Task (Gradio, port
 
 ## Phase 2 - Docker image
 
-1. Create `deploy/requirements.txt` — CPU-only deps (no CUDA index URL, no Jupyter/matplotlib)
-2. Create `Dockerfile` — `python:3.12-slim`, install CPU torch from `https://download.pytorch.org/whl/cpu`, copy `src/` and `demo/`, set `HF_HOME=/tmp/huggingface`, `EXPOSE 7860`
-3. Create `.dockerignore` — exclude `models/`, `notebooks/`, `.git/`, `.vscode/`
+1. Create `deploy/requirements.txt` - CPU-only deps (no CUDA index URL, no Jupyter/matplotlib)
+2. Create `Dockerfile` - `python:3.12-slim`, install CPU torch from `https://download.pytorch.org/whl/cpu`, copy `src/` and `demo/`, set `HF_HOME=/tmp/huggingface`, `EXPOSE 7860`
+3. Create `.dockerignore` - exclude `models/`, `notebooks/`, `.git/`, `.vscode/`
 4. Build and smoke-test locally: `docker build -t stegosaurus . && docker run -p 7860:7860 stegosaurus`
 
 ## Phase 3 - AWS setup (console / CLI)
