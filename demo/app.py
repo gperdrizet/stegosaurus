@@ -32,7 +32,6 @@ with gr.Blocks(title='Stegosaurus') as demo:
     gr.Markdown('# Stegosaurus\nHide secret messages inside AI-generated text.')
 
     with gr.Tabs():
-
         with gr.Tab('Encode'):
 
             prompt_input = gr.Textbox(
@@ -48,7 +47,6 @@ with gr.Blocks(title='Stegosaurus') as demo:
             )
 
             encode_button = gr.Button('Encode', variant='primary')
-
             encode_status = gr.Markdown('', visible=True)
 
             cover_output = gr.Textbox(
@@ -94,7 +92,6 @@ with gr.Blocks(title='Stegosaurus') as demo:
             )
 
             decode_button = gr.Button('Decode', variant='primary')
-
             decode_status = gr.Markdown('', visible=True)
 
             message_output = gr.Textbox(
