@@ -83,6 +83,16 @@ To redeploy after changes, just push again (force is only needed the first time)
 git push space main
 ```
 
+## Known issues
+
+### SSR mode crash (Gradio + Python 3.12)
+
+Gradio enables SSR (Server-Side Rendering) by default, which runs a Node.js sidecar process alongside the Python app. On Python 3.12, Gradio's internal asyncio event loop is not always closed cleanly before garbage collection, producing `ValueError: Invalid file descriptor: -1` errors in `__del__`. With SSR active, this exception tears down the Node.js sidecar, which exits the whole app — HF Spaces then loops trying to restart it and times out after 30 minutes.
+
+The fix is `ssr_mode=False` in `demo.launch()`, which disables the Node.js sidecar. The asyncio errors still appear in the container log as cleanup noise but no longer cause a crash. This is already set in `demo/app.py`.
+
+This is a Gradio internals issue, not a Python bug — upgrading to Python 3.13 is unlikely to help since the faulty cleanup logic is in Gradio's SSR implementation. The fix would come from a future Gradio release that properly closes its event loop on shutdown.
+
 ## Cold start & model caching
 
 The model downloads from HF Hub on the first request after the Space starts (~2-3 min). HF Spaces caches data in `/data` (persistent across restarts on upgraded hardware) or `/tmp` (ephemeral on free CPU). On the free tier, the container is paused after ~15 min of inactivity and the model cache is lost - the next visitor triggers a cold download.
