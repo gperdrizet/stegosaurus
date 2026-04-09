@@ -67,5 +67,5 @@
 
 	// Use 'postAttachCommand' to run commands each time a user connects to the container
 	// This runs every time VS Code attaches/reconnects to the container
-	"postAttachCommand": ""
+	"postAttachCommand": "python ./demo/app.py"
 }
