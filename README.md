@@ -15,6 +15,19 @@ Hide secret messages inside naturally-generated text using a large language mode
 
 **Live demo:** [huggingface.co/spaces/gperdrizet/stegosaurus](https://huggingface.co/spaces/gperdrizet/stegosaurus)
 
+## Run locally
+
+```bash
+# CPU
+docker run -p 8080:8080 gperdrizet/stegosaurus:latest
+
+# GPU (requires NVIDIA Container Toolkit; model uses ~3.5 GB VRAM)
+docker run --gpus all -p 8080:8080 gperdrizet/stegosaurus:latest
+```
+
+Open `http://localhost:8080` in a browser.
+
+
 ## Development setup
 
 **Dev container (recommended):** open the repo in VS Code and choose *Reopen in Container*. VS Code will prompt you to select a configuration:
@@ -27,26 +40,6 @@ Hide secret messages inside naturally-generated text using a large language mode
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-## Local usage
-
-### Web interface
-
-```bash
-python demo/app.py
-```
-
-Open `http://localhost:8080`. Use the **Encode** tab to produce cover text from a secret message, and the **Decode** tab to recover a message from cover text.
-
-### Command line
-
-```bash
-# Encode
-python src/stegosaurus.py -e "your secret message"
-
-# Decode (pipe cover text via stdin)
-echo "<cover text>" | python src/stegosaurus.py -d
 ```
 
 ## Configuration
@@ -65,18 +58,18 @@ Supported models:
 
 Per-model tokenizer settings are in `src/model_config.json`.
 
-## Docker
+## Deployment
 
-A single image runs on CPU or GPU (includes the CUDA 12.6 PyTorch wheel).
+A single image runs on CPU or GPU (includes the CUDA 12.6 PyTorch wheel, supports Pascal / sm_60 and newer).
 
-**Build:**
+**Build from source:**
 ```bash
 make build
 ```
 
-**Run:**
+**Run after building locally:**
 ```bash
-docker run -p 8080:8080 gperdrizet/stegosaurus:latest
+docker run -p 8080:8080 gperdrizet/stegosaurus:dev
 ```
 
 **Build, tag, and push to Docker Hub** using the Makefile (reads the version from the latest git tag automatically):
