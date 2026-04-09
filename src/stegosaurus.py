@@ -12,7 +12,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 # Configuration
 # ---------------------------------------------------------------------------
 
-MODEL_NAME = 'google/gemma-3-1b-pt'
+MODEL_NAME = os.environ.get('MODEL', 'Qwen/Qwen2.5-1.5B')
 
 # Load per-model configuration from the JSON file next to this module.
 _CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'model_config.json')
