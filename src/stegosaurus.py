@@ -16,6 +16,7 @@ MODEL_NAME = os.environ.get('MODEL', 'Qwen/Qwen2.5-1.5B')
 
 # Load per-model configuration from the JSON file next to this module.
 _CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'model_config.json')
+
 with open(_CONFIG_PATH) as _f:
     _ALL_CONFIGS = json.load(_f)
 
