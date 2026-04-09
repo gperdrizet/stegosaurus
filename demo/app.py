@@ -116,4 +116,8 @@ with gr.Blocks(title='Stegosaurus') as demo:
 if __name__ == '__main__':
 
     print('Launching Stegosaurus demo...')
-    demo.launch()
+
+    demo.launch(
+        server_name='0.0.0.0',
+        server_port=int(os.environ.get('PORT', 8080))
+    )
