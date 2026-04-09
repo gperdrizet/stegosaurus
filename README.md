@@ -92,3 +92,10 @@ make release  # build + push in one step
 ```
 
 Requires a `DOCKERHUB_TOKEN` in `.env`. Each build produces two tags per service: `gperdrizet/stegosaurus:v1.0.0-cpu` and `gperdrizet/stegosaurus:latest-cpu`. Builds on untagged commits use `dev` (e.g. `gperdrizet/stegosaurus:dev-cpu`).
+
+**Deploy to Hugging Face Spaces:**
+```bash
+make deploy-hf  # force push main to the HF Space
+```
+
+Requires an `HF_TOKEN` in `.env` (generate at huggingface.co → Settings → Access tokens, with Write scope).
