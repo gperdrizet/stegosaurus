@@ -1,7 +1,7 @@
+.devcontainer
+.git/
+.gradio/
+.vscode/
+docs/
 models/
 notebooks/
-.git/
-.vscode/
-.gradio/
-.devcontainer
-docs/
