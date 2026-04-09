@@ -52,8 +52,8 @@ def _load_model():
         # Set device to GPU if available, otherwise CPU
         _device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-        # Get correct torch dtype for this model from the config
-        _dtype = getattr(torch, _MODEL_CONFIG.get('dtype', 'float16'))
+        # Get torch dtype from environment variable
+        _dtype = getattr(torch, os.environ.get('TORCH_DTYPE', 'float32'))
 
         # Load the tokenizer
         _tokenizer = AutoTokenizer.from_pretrained(

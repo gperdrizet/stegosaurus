@@ -3,28 +3,24 @@
         "default_prompt": "A turtle and a bird were walking in the forest one day. The turtle said, \"",
         "bpe_check_add_special_tokens": false,
         "cover_add_special_tokens": false,
-        "dtype": "float32",
         "trust_remote_code": false
     },
     "Qwen/Qwen2.5-1.5B": {
         "default_prompt": "A turtle and a bird were walking in the forest one day. The turtle said, \"",
         "bpe_check_add_special_tokens": false,
         "cover_add_special_tokens": false,
-        "dtype": "float32",
         "trust_remote_code": false
     },
     "Qwen/Qwen2.5-3B": {
         "default_prompt": "A turtle and a bird were walking in the forest one day. The turtle said, \"",
         "bpe_check_add_special_tokens": false,
         "cover_add_special_tokens": false,
-        "dtype": "float32",
         "trust_remote_code": false
     },
     "meta-llama/Llama-3.2-3B": {
         "default_prompt": "A turtle and a bird were walking in the forest one day. The turtle said, \"",
         "bpe_check_add_special_tokens": false,
         "cover_add_special_tokens": false,
-        "dtype": "float32",
         "trust_remote_code": false
     }
 }

@@ -1,5 +1,4 @@
-numpy
-pandas
+--extra-index-url https://download.pytorch.org/whl/cpu
 transformers
-torch==2.11.0
+torch
 gradio

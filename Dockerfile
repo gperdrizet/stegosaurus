@@ -1,23 +1,25 @@
-FROM python:3.12-slim
+FROM python:3.12-alpine
 
 # Create directory for application code
 WORKDIR /stegosaurus
 
 # Copy requirements.txt file into app directory
-COPY requirements.txt .
+COPY requirements-deploy.txt .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r ./requirements.txt
+RUN pip install --no-cache-dir -r ./requirements-deploy.txt
 
 # Move source code
 COPY src/ src/
 COPY demo/ demo/
 
-# Set some environment vars
+# Set directory for model downloads and cache
 ENV HF_HOME=/tmp/huggingface
+ENV TORCH_DTYPE=float32
 
-# Expose port for Gradio
-EXPOSE 7860
+# Set and expose port for Gradio
+ENV PORT=8080
+EXPOSE 8080
 
 # Launch the app
 CMD ["python", "demo/app.py"]

@@ -9,7 +9,8 @@
 	"runArgs": ["--gpus", "all"],                        // Pass GPU into container
 	"containerEnv": {
 		"HF_HOME": "${containerWorkspaceFolder}/models", // Download from HF to models/ directory
-		"HF_HUB_DISABLE_PROGRESS_BARS": "1"              // Disable HF progress bars
+		"HF_HUB_DISABLE_PROGRESS_BARS": "1",             // Disable HF progress bars
+		"TORCH_DTYPE": "bfloat16"                        // GPU: use bfloat16 for efficiency
 	},
 	"forwardPorts": [7860],                              // Forward port 7860 for the Gradio demo web app
 	"portsAttributes": {
