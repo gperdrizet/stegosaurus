@@ -80,12 +80,8 @@ ping 10.0.0.2   # from VPS → local
 
 ## 3. Run the app locally
 
-Update `demo/app.py` to bind on all interfaces and read port from the environment:
-```python
-demo.launch(server_name="0.0.0.0", server_port=int(os.environ.get("PORT", 7860)))
-```
+`demo/app.py` already binds on all interfaces and reads the port from the `PORT` environment variable (default `8080`). Start the app:
 
-Then start the app:
 ```bash
 cd /workspaces/stegosaurus
 python demo/app.py
@@ -104,7 +100,7 @@ server {
     server_name yourdomain.com;
 
     location / {
-        proxy_pass http://10.0.0.2:7860;
+        proxy_pass http://10.0.0.2:8080;
 
         # Required for Gradio WebSocket connections
         proxy_http_version 1.1;
@@ -136,5 +132,6 @@ Certbot modifies the nginx config automatically and sets up auto-renewal. Point 
 |---|---|---|
 | 502 Bad Gateway | App not running locally, or tunnel down | Check `wg show` and `python demo/app.py` |
 | WebSocket errors in browser | Missing `Upgrade`/`Connection` headers | Verify nginx config includes both headers |
+| Wrong port | `PORT` env var not set, nginx proxying wrong port | Ensure nginx `proxy_pass` uses port 8080 |
 | Tunnel drops after idle | Missing `PersistentKeepalive` | Add `PersistentKeepalive = 25` to local peer config |
 | Certbot fails | Domain A record not yet propagated | Wait for DNS propagation, then retry |

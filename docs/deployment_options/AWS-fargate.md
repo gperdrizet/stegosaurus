@@ -13,20 +13,26 @@ User → Route 53 / DNS → ACM (TLS) → ALB → ECS Fargate Task (Gradio, port
 - **Task size:** 4 vCPU / 16 GB RAM
 - **Cost:** ~$0.29/hr (task) + ~$16/mo (ALB, if using a custom domain)
 
-## Phase 1 - Code changes
+## Phase 1 - Configuration
 
-| File | Change |
+No code changes are needed. Model and dtype are configured via environment variables in the task definition (see Phase 3). Defaults in the repository are already set for CPU Fargate:
+
+| Variable | Value | Notes |
 |---|---|
-| `src/stegosaurus.py` | Set `MODEL_NAME = 'Qwen/Qwen2.5-1.5B'` |
-| `src/model_config.json` | Qwen entry: `"dtype": "float32"` (bfloat16 is unreliable on Fargate's older CPUs) |
-| `demo/app.py` | `demo.launch(server_name="0.0.0.0", server_port=int(os.environ.get("PORT", 7860)))` |
+---|
+| `MODEL` | `Qwen/Qwen2.5-1.5B` | Public model, no HF token required |
+| `TORCH_DTYPE` | `float32` | bfloat16 is unreliable on Fargate's older CPUs |
 
 ## Phase 2 - Docker image
 
-1. Create `deploy/requirements.txt` - CPU-only deps (no CUDA index URL, no Jupyter/matplotlib)
-2. Create `Dockerfile` - `python:3.12-slim`, install CPU torch from `https://download.pytorch.org/whl/cpu`, copy `src/` and `demo/`, set `HF_HOME=/tmp/huggingface`, `EXPOSE 7860`
-3. Create `.dockerignore` - exclude `models/`, `notebooks/`, `.git/`, `.vscode/`
-4. Build and smoke-test locally: `docker build -t stegosaurus . && docker run -p 7860:7860 stegosaurus`
+`requirements-deploy.txt`, `Dockerfile`, `.dockerignore`, and `docker-compose.yml` are present in the repository. Build and smoke-test locally:
+
+```bash
+docker compose build cpu
+docker run --rm -p 8080:8080 stegosaurus:dev-cpu
+```
+
+Open `http://localhost:8080` and verify encode/decode works before pushing to ECR.
 
 ## Phase 3 - AWS setup (console / CLI)
 
@@ -52,17 +58,17 @@ aws logs create-log-group --log-group-name /ecs/stegosaurus
 ### Task definition
 - Launch type: Fargate
 - CPU: 4 vCPU, Memory: 16 GB
-- Container image: ECR URI above, port 7860
-- Environment: `HF_HOME=/tmp/huggingface`
+- Container image: ECR URI above, port 8080
+- Environment: `HF_HOME=/tmp/huggingface`, `MODEL=Qwen/Qwen2.5-1.5B`, `TORCH_DTYPE=float32`
 - Log driver: `awslogs` → `/ecs/stegosaurus`
 
 ### Networking
 - VPC: use default VPC with public subnets
-- Container security group: allow TCP 7860 inbound from the ALB security group only
+- Container security group: allow TCP 8080 inbound from the ALB security group only
 
 ### ECS service
 - 1 desired task, Fargate launch type
-- Without domain: `assignPublicIp=ENABLED`, access via task public IP
+- Without domain: `assignPublicIp=ENABLED`, access via task public IP on port 8080
 - With domain: attach ALB target group (see below)
 
 ## Adding a custom domain (optional)
@@ -77,7 +83,7 @@ Additional resources required:
 | Route 53 A alias (or CNAME) | `yourdomain.com` → ALB DNS name |
 
 ALB security group: allow TCP 443 inbound from `0.0.0.0/0`.
-Container security group: allow TCP 7860 inbound from the ALB security group only (not the public internet).
+Container security group: allow TCP 8080 inbound from the ALB security group only (not the public internet).
 
 ## Cold start & caching
 
@@ -86,7 +92,7 @@ The model (~2 GB) downloads from Hugging Face on the first request after a new t
 ## Smoke test
 
 ```bash
-curl http://<public-ip>:7860       # without ALB
+curl http://<public-ip>:8080       # without ALB
 curl https://yourdomain.com        # with ALB + domain
 ```
 

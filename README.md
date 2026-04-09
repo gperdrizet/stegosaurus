@@ -36,7 +36,7 @@ pip install -r requirements.txt
 python demo/app.py
 ```
 
-Open `http://localhost:7860`. Use the **Encode** tab to produce cover text from a secret message, and the **Decode** tab to recover a message from cover text.
+Open `http://localhost:8080`. Use the **Encode** tab to produce cover text from a secret message, and the **Decode** tab to recover a message from cover text.
 
 ### Command line
 
@@ -50,16 +50,43 @@ echo "<cover text>" | python src/stegosaurus.py -d
 
 ## Configuration
 
-Edit `src/stegosaurus.py` to change the active model:
+Model and dtype are controlled via environment variables:
 
-```python
-MODEL_NAME = 'Qwen/Qwen2.5-1.5B'  # or any model listed in src/model_config.json
-```
+| Variable | Default | Description |
+|---|---|---|
+| `MODEL` | `Qwen/Qwen2.5-1.5B` | HuggingFace model ID. Must be a key in `src/model_config.json`. |
+| `TORCH_DTYPE` | `float32` | PyTorch dtype. Use `float32` for CPU, `bfloat16` for GPU. |
 
 Supported models:
-- `google/gemma-3-1b-pt`,
-- `Qwen/Qwen2.5-1.5B`,
-- `Qwen/Qwen2.5-3B`,
-- `meta-llama/Llama-3.2-3B`.
+- `google/gemma-3-1b-pt`
+- `Qwen/Qwen2.5-1.5B`
+- `Qwen/Qwen2.5-3B`
+- `meta-llama/Llama-3.2-3B`
 
 Per-model tokenizer settings are in `src/model_config.json`.
+
+## Docker
+
+Two images are provided via `docker-compose.yml`: a CPU build and a GPU build.
+
+**Build:**
+```bash
+docker compose build cpu   # CPU-only torch (~250 MB)
+docker compose build gpu   # CUDA 12.6 torch (~2.5 GB)
+docker compose build       # both
+```
+
+**Run:**
+```bash
+docker compose up cpu
+docker compose up gpu      # requires NVIDIA Container Toolkit on the host
+```
+
+**Build, tag, and push to Docker Hub** using the Makefile (reads the version from the latest git tag automatically):
+```bash
+make build    # build both images, tagged with the current git tag and latest
+make push     # push all four tags to Docker Hub
+make release  # build + push in one step
+```
+
+Each build produces two tags per service: `gperdrizet/stegosaurus:v1.0.0-cpu` and `gperdrizet/stegosaurus:latest-cpu`. Builds on untagged commits use `dev` (e.g. `gperdrizet/stegosaurus:dev-cpu`).

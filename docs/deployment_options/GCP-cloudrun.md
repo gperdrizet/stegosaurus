@@ -13,20 +13,25 @@ User → Cloud Run URL (*.run.app) → Cloud Run Service (Gradio, port 8080)
 - **Task size:** 4 vCPU / 16 GB RAM
 - **Cost:** ~$0.002/request (30s encode) - $0 when idle; ~$0.17/hr for a warm instance
 
-## Phase 1 - Code changes
+## Phase 1 - Configuration
 
-| File | Change |
-|---|---|
-| `src/stegosaurus.py` | Set `MODEL_NAME = 'Qwen/Qwen2.5-1.5B'` |
-| `src/model_config.json` | Qwen entry: `"dtype": "float32"` (CPU-only; see GPU option below) |
-| `demo/app.py` | `demo.launch(server_name="0.0.0.0", server_port=int(os.environ.get("PORT", 8080)))` |
+No code changes are needed. Model and dtype are configured via environment variables in the Cloud Run service (see Phase 3). Defaults for CPU Cloud Run:
+
+| Variable | Value | Notes |
+|---|---|---|
+| `MODEL` | `Qwen/Qwen2.5-1.5B` | Public model, no HF token required |
+| `TORCH_DTYPE` | `float32` | CPU-only; see GPU option below |
 
 ## Phase 2 - Docker image
 
-1. Create `deploy/requirements.txt` - CPU-only deps (no CUDA index URL, no Jupyter/matplotlib)
-2. Create `Dockerfile` - `python:3.12-slim`, install CPU torch from `https://download.pytorch.org/whl/cpu`, copy `src/` and `demo/`, set `ENV PORT=8080` and `HF_HOME=/tmp/huggingface`, `EXPOSE 8080`
-3. Create `.dockerignore` - exclude `models/`, `notebooks/`, `.git/`, `.vscode/`
-4. Build and smoke-test locally: `docker build -t stegosaurus . && docker run -p 8080:8080 stegosaurus`
+`requirements-deploy.txt`, `Dockerfile`, `.dockerignore`, and `docker-compose.yml` are present in the repository. Build and smoke-test locally:
+
+```bash
+docker compose build cpu
+docker run --rm -p 8080:8080 stegosaurus:dev-cpu
+```
+
+Open `http://localhost:8080` and verify encode/decode works before pushing to Artifact Registry.
 
 ## Phase 3 - GCP setup
 
@@ -87,7 +92,7 @@ docker push \
    - Memory: `16 GiB`, CPU: `4`
    - Request timeout: `300`
    - Maximum concurrent requests per instance: `1`
-   - Environment variable: `HF_HOME` = `/tmp/huggingface`
+   - Environment variable: `HF_HOME` = `/tmp/huggingface`, `MODEL` = `Qwen/Qwen2.5-1.5B`, `TORCH_DTYPE` = `float32`
 5. Under **Authentication**, select **Allow unauthenticated invocations**
 6. Click **Create**
 
@@ -146,7 +151,7 @@ gcloud run deploy stegosaurus \
   --timeout 300 \
   --concurrency 1 \
   --allow-unauthenticated \
-  --set-env-vars HF_HOME=/tmp/huggingface
+  --set-env-vars HF_HOME=/tmp/huggingface,MODEL=Qwen/Qwen2.5-1.5B,TORCH_DTYPE=float32
 ```
 
 Cloud Run immediately provides a `https://*.run.app` URL with managed TLS - no load balancer or certificate setup required.
@@ -182,7 +187,15 @@ To keep one instance warm and eliminate cold starts, see the "Keep one instance 
 
 Cloud Run supports GPUs since 2024. Adding `--gpu 1` gives you an NVIDIA L4 (24 GB VRAM), dropping encode latency from ~30s to ~2s - comparable to the EC2 g4dn.xlarge plan, but fully serverless.
 
+First build the GPU image:
 ```bash
+docker compose build gpu
+# tag and push to Artifact Registry as above, using the gpu image
+docker tag stegosaurus:dev-gpu <region>-docker.pkg.dev/<project>/stegosaurus/app:gpu
+docker push <region>-docker.pkg.dev/<project>/stegosaurus/app:gpu
+```
+
+Then deploy:
 gcloud run deploy stegosaurus \
   --image <region>-docker.pkg.dev/<project>/stegosaurus/app:latest \
   --region <region> \
@@ -193,10 +206,10 @@ gcloud run deploy stegosaurus \
   --timeout 300 \
   --concurrency 1 \
   --allow-unauthenticated \
-  --set-env-vars HF_HOME=/tmp/huggingface
+  --set-env-vars HF_HOME=/tmp/huggingface,MODEL=Qwen/Qwen2.5-1.5B,TORCH_DTYPE=bfloat16
 ```
 
-With GPU, keep `"dtype": "bfloat16"` in `model_config.json` - no change needed from the dev config. Use a CUDA-enabled Docker image (same as the EC2 plan: install `torch==2.11.0` from `https://download.pytorch.org/whl/cu126`).
+With GPU, `TORCH_DTYPE=bfloat16` is set automatically by `docker compose build gpu` as a default, but passing it explicitly in the Cloud Run env var overrides any image default.
 
 GPU Cloud Run availability is limited to specific regions (currently `us-central1`, `asia-northeast1`, others). Check the [Cloud Run GPU docs](https://cloud.google.com/run/docs/configuring/services/gpu) for the current list.
 

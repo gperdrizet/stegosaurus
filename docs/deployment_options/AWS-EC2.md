@@ -17,32 +17,25 @@ User → Route 53 / DNS → ACM (TLS) → ALB → ECS Task on EC2 g4dn.xlarge (G
 
 The Docker image, task definition structure, ECR push, and ALB setup are identical to the Fargate plan.
 
-## Phase 1 - Code changes
+## Phase 1 - Configuration
 
-Same as Fargate, plus update `model_config.json` to set `bfloat16` for the Qwen entry (the default is already `bfloat16`, so this is only needed if it was changed for a CPU deployment):
+No code changes are needed. Model and dtype are configured via environment variables in the task definition (see Phase 3):
 
-```json
-"Qwen/Qwen2.5-1.5B": {
-    "dtype": "bfloat16"
-}
-```
-
-And update `demo/app.py`:
-```python
-demo.launch(server_name="0.0.0.0", server_port=int(os.environ.get("PORT", 7860)))
-```
+| Variable | Value | Notes |
+|---|---|---|
+| `MODEL` | `Qwen/Qwen2.5-1.5B` | Fits in T4's 16 GB VRAM |
+| `TORCH_DTYPE` | `bfloat16` | GPU-appropriate dtype |
 
 ## Phase 2 - Docker image
 
-Use a **CUDA-enabled image** instead of CPU-only:
+Use the **GPU build** from `docker-compose.yml`, which installs CUDA 12.6 torch automatically:
 
-```dockerfile
-FROM python:3.12-slim
-# Install torch with CUDA 12.6 support
-RUN pip install torch==2.11.0 --extra-index-url https://download.pytorch.org/whl/cu126
+```bash
+docker compose build gpu
+docker run --rm --gpus all -p 8080:8080 stegosaurus:dev-gpu
 ```
 
-Everything else (copy `src/`, `demo/`, set `HF_HOME`, `EXPOSE 7860`) is the same as the Fargate plan.
+Verify encode/decode works before pushing to ECR.
 
 ## Phase 3 - AWS setup
 
@@ -63,8 +56,8 @@ Add an **EC2 instance profile** with `AmazonEC2ContainerServiceforEC2Role` so th
 - Launch type: **EC2** (not Fargate)
 - GPU: request 1 GPU resource (`"resourceRequirements": [{"type": "GPU", "value": "1"}]`)
 - Memory: 8192 MB (leaves headroom on the 16 GB instance RAM)
-- Container image: ECR URI, port 7860
-- Environment: `HF_HOME=/tmp/huggingface`
+- Container image: ECR URI, port 8080
+- Environment: `HF_HOME=/tmp/huggingface`, `MODEL=Qwen/Qwen2.5-1.5B`, `TORCH_DTYPE=bfloat16`
 - Log driver: `awslogs` → `/ecs/stegosaurus`
 
 ### ECS service, ALB, and custom domain
