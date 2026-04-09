@@ -29,7 +29,7 @@ def decode_message(prompt: str, cover_text: str) -> tuple[str, str]:
 
 with gr.Blocks(title='Stegosaurus') as demo:
 
-    gr.Markdown('# Stegosaurus\nHide secret messages inside AI-generated text. [[GitHub](https://github.com/gperdrizet/stegosaurus)]')
+    gr.Markdown('# Stegosaurus\nHide secret messages inside AI-generated text. GitHub repository: [gperdrizet/stegosaurus](https://github.com/gperdrizet/stegosaurus)')
 
     with gr.Tabs():
         with gr.Tab('Encode'):
