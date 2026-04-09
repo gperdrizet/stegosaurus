@@ -14,11 +14,10 @@ COPY src/ src/
 COPY demo/ demo/
 
 # Set some environment vars
-ENV PORT=8080
 ENV HF_HOME=/tmp/huggingface
 
 # Expose port for Gradio
-EXPOSE 8080
+EXPOSE 7860
 
 # Launch the app
 CMD ["python", "demo/app.py"]
