@@ -1,3 +1,15 @@
+---
+title: Stegosaurus
+emoji: 🦕
+colorFrom: green
+colorTo: blue
+sdk: gradio
+sdk_version: "6.11.0"
+app_file: demo/app.py
+python_version: "3.12"
+pinned: false
+---
+
 # Stegosaurus
 
 Hide secret messages inside naturally-generated text using a large language model. A message is encoded into cover text by steering next-token selection at each step; a recipient with the same model can recover the original message deterministically. See [docs/whitepaper.md](docs/whitepaper.md) for how it works.
