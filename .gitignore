@@ -1,4 +1,5 @@
 __pycache__
+.gradio
 .venv
 .vscode
 models
