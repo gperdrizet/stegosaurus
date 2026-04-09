@@ -1,0 +1,27 @@
+services:
+  cpu:
+    build:
+      context: .
+      args:
+        DEVICE: cpu
+        TORCH_DTYPE: float32
+    image: stegosaurus:cpu
+    ports:
+      - "8080:8080"
+
+  gpu:
+    build:
+      context: .
+      args:
+        DEVICE: gpu
+        TORCH_DTYPE: bfloat16
+    image: stegosaurus:gpu
+    ports:
+      - "8080:8080"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
