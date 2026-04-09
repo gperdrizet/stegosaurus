@@ -28,11 +28,11 @@ No code changes are needed. Model and dtype are configured via environment varia
 
 ## Phase 2 - Docker image
 
-Use the **GPU build** from `docker-compose.yml`, which installs CUDA 12.6 torch automatically:
+Build and smoke-test locally:
 
 ```bash
-docker compose build gpu
-docker run --rm --gpus all -p 8080:8080 stegosaurus:dev-gpu
+make build
+docker run --rm --gpus all -p 8080:8080 -e TORCH_DTYPE=bfloat16 gperdrizet/stegosaurus:dev
 ```
 
 Verify encode/decode works before pushing to ECR.

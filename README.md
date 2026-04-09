@@ -58,7 +58,7 @@ Model and dtype are controlled via environment variables:
 | Variable | Default | Description |
 |---|---|---|
 | `MODEL` | `Qwen/Qwen2.5-1.5B` | HuggingFace model ID. Must be a key in `src/model_config.json`. |
-| `TORCH_DTYPE` | `float32` | PyTorch dtype. Use `float32` for CPU, `bfloat16` for GPU. |
+| `TORCH_DTYPE` | `float32` | PyTorch dtype (`float32` or `bfloat16`). |
 
 Supported models:
 - `google/gemma-3-1b-pt`
@@ -70,29 +70,26 @@ Per-model tokenizer settings are in `src/model_config.json`.
 
 ## Docker
 
-Two images are provided via `docker-compose.yml`: a CPU build and a GPU build.
+A single image runs on CPU or GPU (includes the CUDA 12.6 PyTorch wheel).
 
 **Build:**
 ```bash
-docker compose build cpu   # CPU-only torch (~250 MB)
-docker compose build gpu   # CUDA 12.6 torch (~2.5 GB)
-docker compose build       # both
+make build
 ```
 
 **Run:**
 ```bash
-docker compose up cpu
-docker compose up gpu      # requires NVIDIA Container Toolkit on the host
+docker run -p 8080:8080 gperdrizet/stegosaurus:latest
 ```
 
 **Build, tag, and push to Docker Hub** using the Makefile (reads the version from the latest git tag automatically):
 ```bash
-make build    # build both images, tagged with the current git tag and latest
-make push     # push all four tags to Docker Hub + update Docker Hub description
+make build    # build the image, tagged with the current git tag and latest
+make push     # push to Docker Hub + update Docker Hub description
 make release  # build + push in one step
 ```
 
-Requires a `DOCKERHUB_TOKEN` in `.env`. Each build produces two tags per service: `gperdrizet/stegosaurus:v1.0.0-cpu` and `gperdrizet/stegosaurus:latest-cpu`. Builds on untagged commits use `dev` (e.g. `gperdrizet/stegosaurus:dev-cpu`).
+Requires a `DOCKERHUB_TOKEN` in `.env`. Each build produces two tags: `gperdrizet/stegosaurus:v1.0.0` and `gperdrizet/stegosaurus:latest`. Builds on untagged commits use `dev` (e.g. `gperdrizet/stegosaurus:dev`).
 
 **Deploy to Hugging Face Spaces:**
 ```bash

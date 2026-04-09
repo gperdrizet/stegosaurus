@@ -24,11 +24,11 @@ No code changes are needed. Model and dtype are configured via environment varia
 
 ## Phase 2 - Docker image
 
-`requirements-deploy.txt`, `Dockerfile`, `.dockerignore`, and `docker-compose.yml` are present in the repository. Build and smoke-test locally:
+`requirements-deploy.txt`, `Dockerfile`, and `.dockerignore` are present in the repository. Build and smoke-test locally:
 
 ```bash
-docker compose build cpu
-docker run --rm -p 8080:8080 stegosaurus:dev-cpu
+make build
+docker run --rm -p 8080:8080 gperdrizet/stegosaurus:dev
 ```
 
 Open `http://localhost:8080` and verify encode/decode works before pushing to Artifact Registry.
@@ -187,12 +187,11 @@ To keep one instance warm and eliminate cold starts, see the "Keep one instance 
 
 Cloud Run supports GPUs since 2024. Adding `--gpu 1` gives you an NVIDIA L4 (24 GB VRAM), dropping encode latency from ~30s to ~2s - comparable to the EC2 g4dn.xlarge plan, but fully serverless.
 
-First build the GPU image:
+Build and push the image as normal:
 ```bash
-docker compose build gpu
-# tag and push to Artifact Registry as above, using the gpu image
-docker tag stegosaurus:dev-gpu <region>-docker.pkg.dev/<project>/stegosaurus/app:gpu
-docker push <region>-docker.pkg.dev/<project>/stegosaurus/app:gpu
+make build
+docker tag gperdrizet/stegosaurus:dev <region>-docker.pkg.dev/<project>/stegosaurus/app:latest
+docker push <region>-docker.pkg.dev/<project>/stegosaurus/app:latest
 ```
 
 Then deploy:
@@ -209,7 +208,7 @@ gcloud run deploy stegosaurus \
   --set-env-vars HF_HOME=/tmp/huggingface,MODEL=Qwen/Qwen2.5-1.5B,TORCH_DTYPE=bfloat16
 ```
 
-With GPU, `TORCH_DTYPE=bfloat16` is set automatically by `docker compose build gpu` as a default, but passing it explicitly in the Cloud Run env var overrides any image default.
+With GPU, set `TORCH_DTYPE=bfloat16` explicitly in the Cloud Run env vars as shown above.
 
 GPU Cloud Run availability is limited to specific regions (currently `us-central1`, `asia-northeast1`, others). Check the [Cloud Run GPU docs](https://cloud.google.com/run/docs/configuring/services/gpu) for the current list.
 

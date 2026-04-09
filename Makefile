@@ -2,8 +2,8 @@
 # Stegosaurus Makefile
 # =============================================================================
 # Targets:
-#   build      - Build CPU and GPU Docker images
-#   push       - Push images to Docker Hub + update repo description
+#   build      - Build the Docker image (CUDA wheel, runs on CPU and GPU)
+#   push       - Push image to Docker Hub + update repo description
 #   release    - build + push (full release workflow)
 #   deploy-hf  - Deploy to Hugging Face Spaces
 #
@@ -24,18 +24,16 @@ export
 
 .PHONY: build push release deploy-hf
 
-# Build both CPU and GPU images using docker compose.
-# Tags each image with the current VERSION and 'latest' (e.g. v0.1.0-cpu, latest-cpu).
+# Build the single image.
+# Tags with the current VERSION and 'latest' (e.g. v0.1.0, latest).
 build:
-	VERSION=$(VERSION) docker compose build
+	docker build --tag $(REPO):$(VERSION) --tag $(REPO):latest .
 
-# Push all four image tags to Docker Hub, then update the repo description
+# Push both tags to Docker Hub, then update the repo description
 # from docs/dockerhub.md via the Docker Hub API.
 push:
-	docker push $(REPO):$(VERSION)-cpu
-	docker push $(REPO):latest-cpu
-	docker push $(REPO):$(VERSION)-gpu
-	docker push $(REPO):latest-gpu
+	docker push $(REPO):$(VERSION)
+	docker push $(REPO):latest
 	@JWT=$$(curl -s -X POST https://hub.docker.com/v2/users/login \
 	  -H "Content-Type: application/json" \
 	  -d '{"username":"gperdrizet","password":"$(DOCKERHUB_TOKEN)"}' \

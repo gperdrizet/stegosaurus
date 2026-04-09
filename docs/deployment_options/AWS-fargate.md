@@ -28,8 +28,8 @@ No code changes are needed. Model and dtype are configured via environment varia
 `requirements-deploy.txt`, `Dockerfile`, `.dockerignore`, and `docker-compose.yml` are present in the repository. Build and smoke-test locally:
 
 ```bash
-docker compose build cpu
-docker run --rm -p 8080:8080 stegosaurus:dev-cpu
+make build
+docker run --rm -p 8080:8080 gperdrizet/stegosaurus:dev
 ```
 
 Open `http://localhost:8080` and verify encode/decode works before pushing to ECR.
