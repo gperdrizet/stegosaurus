@@ -5,7 +5,10 @@ services:
       args:
         DEVICE: cpu
         TORCH_DTYPE: float32
-    image: stegosaurus:cpu
+      tags:
+        - stegosaurus:${VERSION:-dev}-cpu
+        - stegosaurus:latest-cpu
+    image: stegosaurus:${VERSION:-dev}-cpu
     ports:
       - "8080:8080"
 
@@ -15,7 +18,10 @@ services:
       args:
         DEVICE: gpu
         TORCH_DTYPE: bfloat16
-    image: stegosaurus:gpu
+      tags:
+        - stegosaurus:${VERSION:-dev}-gpu
+        - stegosaurus:latest-gpu
+    image: stegosaurus:${VERSION:-dev}-gpu
     ports:
       - "8080:8080"
     deploy:
