@@ -53,12 +53,11 @@ echo "<cover text>" | python src/stegosaurus.py -d
 
 ## Configuration
 
-Model and dtype are controlled via environment variables:
+The model is configured via environment variable:
 
 | Variable | Default | Description |
 |---|---|---|
 | `MODEL` | `Qwen/Qwen2.5-1.5B` | HuggingFace model ID. Must be a key in `src/model_config.json`. |
-| `TORCH_DTYPE` | `float32` | PyTorch dtype (`float32` or `bfloat16`). |
 
 Supported models:
 - `google/gemma-3-1b-pt`

@@ -15,21 +15,19 @@ docker run -p 8080:8080 gperdrizet/stegosaurus:latest
 For GPU inference, pass `--gpus all` (requires [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)):
 
 ```bash
-docker run --gpus all -p 8080:8080 -e TORCH_DTYPE=bfloat16 gperdrizet/stegosaurus:latest
+docker run --gpus all -p 8080:8080 gperdrizet/stegosaurus:latest
 ```
 
 ## Configuration
 
-Override model or dtype at runtime via environment variables:
+Override the model at runtime via environment variable:
 
 | Variable | Default | Description |
 |---|---|---|
 | `MODEL` | `Qwen/Qwen2.5-1.5B` | HuggingFace model ID |
-| `TORCH_DTYPE` | `float32` | PyTorch dtype (`float32` or `bfloat16`) |
 
 ```bash
 docker run -p 8080:8080 \
   -e MODEL=Qwen/Qwen2.5-3B \
-  -e TORCH_DTYPE=float32 \
   gperdrizet/stegosaurus:latest
 ```

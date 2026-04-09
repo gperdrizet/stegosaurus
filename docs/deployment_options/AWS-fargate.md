@@ -21,7 +21,6 @@ No code changes are needed. Model and dtype are configured via environment varia
 |---|---|
 ---|
 | `MODEL` | `Qwen/Qwen2.5-1.5B` | Public model, no HF token required |
-| `TORCH_DTYPE` | `float32` | bfloat16 is unreliable on Fargate's older CPUs |
 
 ## Phase 2 - Docker image
 
@@ -59,7 +58,7 @@ aws logs create-log-group --log-group-name /ecs/stegosaurus
 - Launch type: Fargate
 - CPU: 4 vCPU, Memory: 16 GB
 - Container image: ECR URI above, port 8080
-- Environment: `HF_HOME=/tmp/huggingface`, `MODEL=Qwen/Qwen2.5-1.5B`, `TORCH_DTYPE=float32`
+- Environment: `HF_HOME=/tmp/huggingface`, `MODEL=Qwen/Qwen2.5-1.5B`
 - Log driver: `awslogs` → `/ecs/stegosaurus`
 
 ### Networking

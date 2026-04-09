@@ -20,7 +20,6 @@ No code changes are needed. Model and dtype are configured via environment varia
 | Variable | Value | Notes |
 |---|---|---|
 | `MODEL` | `Qwen/Qwen2.5-1.5B` | Public model, no HF token required |
-| `TORCH_DTYPE` | `float32` | CPU-only; see GPU option below |
 
 ## Phase 2 - Docker image
 
@@ -92,7 +91,7 @@ docker push \
    - Memory: `16 GiB`, CPU: `4`
    - Request timeout: `300`
    - Maximum concurrent requests per instance: `1`
-   - Environment variable: `HF_HOME` = `/tmp/huggingface`, `MODEL` = `Qwen/Qwen2.5-1.5B`, `TORCH_DTYPE` = `float32`
+   - Environment variable: `HF_HOME` = `/tmp/huggingface`, `MODEL` = `Qwen/Qwen2.5-1.5B`
 5. Under **Authentication**, select **Allow unauthenticated invocations**
 6. Click **Create**
 
@@ -151,7 +150,7 @@ gcloud run deploy stegosaurus \
   --timeout 300 \
   --concurrency 1 \
   --allow-unauthenticated \
-  --set-env-vars HF_HOME=/tmp/huggingface,MODEL=Qwen/Qwen2.5-1.5B,TORCH_DTYPE=float32
+  --set-env-vars HF_HOME=/tmp/huggingface,MODEL=Qwen/Qwen2.5-1.5B
 ```
 
 Cloud Run immediately provides a `https://*.run.app` URL with managed TLS - no load balancer or certificate setup required.
@@ -205,10 +204,8 @@ gcloud run deploy stegosaurus \
   --timeout 300 \
   --concurrency 1 \
   --allow-unauthenticated \
-  --set-env-vars HF_HOME=/tmp/huggingface,MODEL=Qwen/Qwen2.5-1.5B,TORCH_DTYPE=bfloat16
+  --set-env-vars HF_HOME=/tmp/huggingface,MODEL=Qwen/Qwen2.5-1.5B
 ```
-
-With GPU, set `TORCH_DTYPE=bfloat16` explicitly in the Cloud Run env vars as shown above.
 
 GPU Cloud Run availability is limited to specific regions (currently `us-central1`, `asia-northeast1`, others). Check the [Cloud Run GPU docs](https://cloud.google.com/run/docs/configuring/services/gpu) for the current list.
 

@@ -15,7 +15,6 @@ COPY demo/ demo/
 
 # Set directory for model downloads and cache
 ENV HF_HOME=/tmp/huggingface
-ENV TORCH_DTYPE=float32
 ENV MODEL=Qwen/Qwen2.5-1.5B
 
 # Set and expose port for Gradio

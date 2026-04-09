@@ -12,7 +12,6 @@
 	"containerEnv": {
 		"HF_HOME": "${containerWorkspaceFolder}/models", // Download from HF to models/ directory
 		"HF_HUB_DISABLE_PROGRESS_BARS": "1",             // Disable HF progress bars
-		"TORCH_DTYPE": "float32",                        // CPU: use float32 (bfloat16 has limited CPU support)
 		"MODEL": "Qwen/Qwen2.5-1.5B",                    // Model to use for encoding/decoding
 		"PORT": "8080"                                   // Port for the Gradio demo web app
 	},

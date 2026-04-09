@@ -24,7 +24,6 @@ No code changes are needed. Model and dtype are configured via environment varia
 | Variable | Value | Notes |
 |---|---|---|
 | `MODEL` | `Qwen/Qwen2.5-1.5B` | Fits in T4's 16 GB VRAM |
-| `TORCH_DTYPE` | `bfloat16` | GPU-appropriate dtype |
 
 ## Phase 2 - Docker image
 
@@ -32,7 +31,7 @@ Build and smoke-test locally:
 
 ```bash
 make build
-docker run --rm --gpus all -p 8080:8080 -e TORCH_DTYPE=bfloat16 gperdrizet/stegosaurus:dev
+docker run --rm --gpus all -p 8080:8080 gperdrizet/stegosaurus:dev
 ```
 
 Verify encode/decode works before pushing to ECR.
@@ -57,7 +56,7 @@ Add an **EC2 instance profile** with `AmazonEC2ContainerServiceforEC2Role` so th
 - GPU: request 1 GPU resource (`"resourceRequirements": [{"type": "GPU", "value": "1"}]`)
 - Memory: 8192 MB (leaves headroom on the 16 GB instance RAM)
 - Container image: ECR URI, port 8080
-- Environment: `HF_HOME=/tmp/huggingface`, `MODEL=Qwen/Qwen2.5-1.5B`, `TORCH_DTYPE=bfloat16`
+- Environment: `HF_HOME=/tmp/huggingface`, `MODEL=Qwen/Qwen2.5-1.5B`
 - Log driver: `awslogs` → `/ecs/stegosaurus`
 
 ### ECS service, ALB, and custom domain
