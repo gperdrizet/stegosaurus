@@ -4,7 +4,7 @@ REPO    := gperdrizet/stegosaurus
 -include .env
 export
 
-.PHONY: build push release
+.PHONY: build push release deploy-hf
 
 build:
 	VERSION=$(VERSION) docker compose build
@@ -25,4 +25,7 @@ push:
 
 release: build push
 
-release: build push
+deploy-hf:
+	git remote get-url space 2>/dev/null || \
+	  git remote add space https://oauth2:$(HF_TOKEN)@huggingface.co/spaces/gperdrizet/stegosaurus
+	git push --force space main

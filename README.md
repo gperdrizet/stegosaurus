@@ -85,8 +85,8 @@ docker compose up gpu      # requires NVIDIA Container Toolkit on the host
 **Build, tag, and push to Docker Hub** using the Makefile (reads the version from the latest git tag automatically):
 ```bash
 make build    # build both images, tagged with the current git tag and latest
-make push     # push all four tags to Docker Hub
+make push     # push all four tags to Docker Hub + update Docker Hub description
 make release  # build + push in one step
 ```
 
-Each build produces two tags per service: `gperdrizet/stegosaurus:v1.0.0-cpu` and `gperdrizet/stegosaurus:latest-cpu`. Builds on untagged commits use `dev` (e.g. `gperdrizet/stegosaurus:dev-cpu`).
+Requires a `DOCKERHUB_TOKEN` in `.env`. Each build produces two tags per service: `gperdrizet/stegosaurus:v1.0.0-cpu` and `gperdrizet/stegosaurus:latest-cpu`. Builds on untagged commits use `dev` (e.g. `gperdrizet/stegosaurus:dev-cpu`).
