@@ -51,6 +51,7 @@ def _load_model():
 
         # Set device to GPU if available, otherwise CPU
         _device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        print(f'Device: {_device} (cuda available: {torch.cuda.is_available()}, torch CUDA: {torch.version.cuda})', flush=True)
 
         # Use bfloat16 on GPU, float32 on CPU
         _dtype = torch.bfloat16 if _device.type == 'cuda' else torch.float32
