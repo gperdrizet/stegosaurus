@@ -6,7 +6,7 @@ Source: [github.com/gperdrizet/stegosaurus](https://github.com/gperdrizet/stegos
 
 ## Usage
 
-The image uses the CUDA 12.6 PyTorch build, which supports Pascal GPUs (sm_60) and newer. Runs on CPU too — torch selects the device automatically at runtime.
+The image uses the CUDA 12.6 PyTorch build, which supports Pascal GPUs (sm_60) and newer. Runs on CPU too; torch selects the device automatically at runtime.
 
 ```bash
 docker run -p 8080:8080 gperdrizet/stegosaurus:latest

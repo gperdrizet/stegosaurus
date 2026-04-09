@@ -1,5 +1,4 @@
-# PyTorch CUDA 12.6 wheel — supports Pascal GPUs (sm_60+) and newer.
-# PyPI's default torch ships CUDA 13 which only supports sm_75+.
+# PyTorch CUDA 12.6 wheel - supports Pascal GPUs (sm_60+) and newer.
 --extra-index-url https://download.pytorch.org/whl/cu126
 transformers
 torch
