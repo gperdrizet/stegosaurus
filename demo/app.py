@@ -114,4 +114,6 @@ with gr.Blocks(title='Stegosaurus') as demo:
 
 
 if __name__ == '__main__':
+
+    print('Launching Stegosaurus demo...')
     demo.launch()
