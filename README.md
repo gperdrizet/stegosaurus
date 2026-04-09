@@ -15,7 +15,7 @@ Hide secret messages inside naturally-generated text using a large language mode
 
 **Live demo:** [huggingface.co/spaces/gperdrizet/stegosaurus](https://huggingface.co/spaces/gperdrizet/stegosaurus)
 
-## Setup
+## Development setup
 
 **Dev container (recommended):** open the repo in VS Code and choose *Reopen in Container*. VS Code will prompt you to select a configuration:
 
@@ -29,7 +29,7 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Usage
+## Local usage
 
 ### Web interface
 
