@@ -7,7 +7,8 @@ sdk: gradio
 sdk_version: "6.11.0"
 app_file: demo/app.py
 python_version: "3.12"
-pinned: false
+pinned: true
+short_description: Hide secret messages inside generated text
 ---
 
 # Stegosaurus
