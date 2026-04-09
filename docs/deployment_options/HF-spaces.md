@@ -23,7 +23,8 @@ colorFrom: green
 colorTo: blue
 sdk: docker
 app_port: 8080
-pinned: false
+pinned: true
+short_description: Hide secret messages inside generated text
 ---
 ```
 
