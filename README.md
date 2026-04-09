@@ -14,6 +14,8 @@ pinned: false
 
 Hide secret messages inside naturally-generated text using a large language model. A message is encoded into cover text by steering next-token selection at each step; a recipient with the same model can recover the original message deterministically. See [docs/whitepaper.md](docs/whitepaper.md) for how it works.
 
+**Live demo:** [huggingface.co/spaces/gperdrizet/stegosaurus](https://huggingface.co/spaces/gperdrizet/stegosaurus)
+
 ## Setup
 
 **Dev container (recommended):** open the repo in VS Code and choose *Reopen in Container*. VS Code will prompt you to select a configuration:
