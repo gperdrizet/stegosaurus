@@ -1,0 +1,7 @@
+models/
+notebooks/
+.git/
+.vscode/
+.gradio/
+.devcontainer
+docs/
