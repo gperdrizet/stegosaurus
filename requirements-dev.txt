@@ -1,5 +1,5 @@
 # Use CUDA 12.6 for wide GPU compatibility; supports Pascal forward
-# If you have a newer GPU, you can try CUDA 12.8 or 13.0 for 
+# If you have a newer GPU, you can try CUDA 12.8 or 13.x for 
 # potentially (slightly) better performance
 --extra-index-url https://download.pytorch.org/whl/cu126
 ipykernel
