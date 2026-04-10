@@ -92,12 +92,12 @@ docker push \
 1. Navigate to **Cloud Run > Create service**
 2. Select **Deploy one revision from an existing container image**, click **Select** and pick the image you just pushed
 3. Service name: `stegosaurus`, Region: same as your repository
-4. Under **Container, networking, security**:
+4. Under **Authentication**, select **Allow unauthenticated invocations**
+5. Under **Container, networking, security**:
    - Container port: `8080`
    - Memory: `16 GiB`, CPU: `4`
    - Request timeout: `300`
    - Maximum concurrent requests per instance: `1`
-5. Under **Authentication**, select **Allow unauthenticated invocations**
 6. Click **Create**
 
 Cloud Run displays the service URL (`https://*.run.app`) once the deployment completes.
