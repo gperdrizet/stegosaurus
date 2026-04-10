@@ -6,7 +6,9 @@
 	// Use the default (CPU / Codespaces) configuration instead in those cases.
 	"name": "Python 3.12 (GPU)",
 	"image": "mcr.microsoft.com/devcontainers/python:3.12",
-	"runArgs": ["--gpus", "all"],                        // Pass GPU into container
+	// Load .env file if present (e.g. HF_TOKEN). Creates an empty one if missing so --env-file never fails.
+	"initializeCommand": "test -f ${localWorkspaceFolder}/.env || touch ${localWorkspaceFolder}/.env",
+	"runArgs": ["--gpus", "all", "--env-file", "${localWorkspaceFolder}/.env"], // Pass GPU + inject .env variables
 	"containerEnv": {
 		"HF_HOME": "${containerWorkspaceFolder}/models", // Download from HF to models/ directory
 		"HF_HUB_DISABLE_PROGRESS_BARS": "1",             // Disable HF progress bars

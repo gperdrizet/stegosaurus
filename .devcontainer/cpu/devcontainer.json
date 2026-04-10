@@ -9,10 +9,13 @@
 	"image": "mcr.microsoft.com/devcontainers/python:3.12",
 	// No GPU passthrough - works on any machine and on GitHub Codespaces.
 	// For local GPU access, use the 'gpu' configuration instead.
+	// Load .env file if present (e.g. HF_TOKEN). Creates an empty one if missing so --env-file never fails.
+	"initializeCommand": "test -f ${localWorkspaceFolder}/.env || touch ${localWorkspaceFolder}/.env",
+	"runArgs": ["--env-file", "${localWorkspaceFolder}/.env"], // Inject .env variables into container
 	"containerEnv": {
 		"HF_HOME": "${containerWorkspaceFolder}/models", // Download from HF to models/ directory
 		"HF_HUB_DISABLE_PROGRESS_BARS": "1",             // Disable HF progress bars
-		"MODEL": "Qwen/Qwen3-0.6B",                       // Model to use for encoding/decoding
+		"MODEL": "Qwen/Qwen3-0.6B",                      // Model to use for encoding/decoding
 		"PORT": "8080"                                   // Port for the Gradio demo web app
 	},
 	"forwardPorts": [8080],                              // Forward port 8080 for the Gradio demo web app
@@ -55,7 +58,7 @@
 		  "-dbaeumer.vscode-eslint",                // Explicitly exclude ESLint (not needed for Python projects)
 		  "ms-python.python",                       // Core Python language support, IntelliSense, debugging
 		  "ms-toolsai.jupyter",                     // Jupyter notebook support for interactive data science
-		  "streetsidesoftware.code-spell-checker"  // Spell checking for code and documentation
+		  "streetsidesoftware.code-spell-checker"   // Spell checking for code and documentation
 		]
 	  }
 	},
