@@ -79,6 +79,19 @@ To redeploy after changes, just push again (force is only needed the first time)
 git push space main
 ```
 
+## Phase 5 - Configure environment variables
+
+The Gradio app needs the `PORT` environment variable set to 7860 (the default port for Gradio SDK on HF Spaces).
+
+1. Go to your Space at `https://huggingface.co/spaces/<username>/stegosaurus`
+2. Click **Settings**
+3. Scroll to **Variables and secrets**
+4. Click **New secret** (or **New variable** for public visibility)
+5. Name: `PORT`, Value: `7860`
+6. Click **Save**
+
+The Space will automatically restart with the new environment variable.
+
 ## Cold start & model caching
 
 The model downloads from HF Hub on the first request after the Space starts (~2-3 min). HF Spaces caches data in `/data` (persistent across restarts on upgraded hardware) or in the Gradio environment's cache directory (ephemeral on free CPU). On the free tier, the Space is paused after ~15 min of inactivity and the model cache is lost - the next visitor triggers a cold download.
