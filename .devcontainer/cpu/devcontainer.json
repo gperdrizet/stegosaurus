@@ -12,7 +12,7 @@
 	"containerEnv": {
 		"HF_HOME": "${containerWorkspaceFolder}/models", // Download from HF to models/ directory
 		"HF_HUB_DISABLE_PROGRESS_BARS": "1",             // Disable HF progress bars
-		"MODEL": "Qwen/Qwen3-0.6",                       // Model to use for encoding/decoding
+		"MODEL": "Qwen/Qwen3-0.6B",                       // Model to use for encoding/decoding
 		"PORT": "8080"                                   // Port for the Gradio demo web app
 	},
 	"forwardPorts": [8080],                              // Forward port 8080 for the Gradio demo web app
