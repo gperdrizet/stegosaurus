@@ -12,9 +12,9 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 # Configuration
 # ---------------------------------------------------------------------------
 
-MODEL_NAME = os.environ.get('MODEL', 'Qwen/Qwen2.5-1.5B')
+MODEL_NAME = os.environ.get('MODEL', 'Qwen/Qwen3-0.6B')
 
-# Load per-model configuration from the JSON file next to this module.
+# Load per-model configuration
 _CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'model_config.json')
 
 with open(_CONFIG_PATH) as _f:
@@ -28,10 +28,10 @@ if MODEL_NAME not in _ALL_CONFIGS:
 
 _MODEL_CONFIG = _ALL_CONFIGS[MODEL_NAME]
 
-TOP_K = 50          # Number of top tokens to consider at each step
-N_PARTITIONS = 2    # Must be a power of 2; bits per token = log2(N_PARTITIONS)
+TOP_K = 50                      # Number of top tokens to consider at each step
+N_PARTITIONS = 2                # Must be a power of 2; bits per token = log2(N_PARTITIONS)
+EOM = [1, 1, 1, 1, 1, 1, 1, 1]  # 0xFF - never valid UTF-8; marks end of message
 PROMPT = _MODEL_CONFIG['default_prompt']
-EOM = [1, 1, 1, 1, 1, 1, 1, 1]  # 0xFF — never valid UTF-8; marks end of message
 
 # ---------------------------------------------------------------------------
 # Shared model loading (lazy, module-level cache)
@@ -55,6 +55,7 @@ def _load_model():
 
         # Use bfloat16 on GPU, float32 on CPU
         _dtype = torch.bfloat16 if _device.type == 'cuda' else torch.float32
+        print(f'Using dtype {_dtype}', flush=True)
 
         # Load the tokenizer
         _tokenizer = AutoTokenizer.from_pretrained(
@@ -71,6 +72,8 @@ def _load_model():
 
         # Put model in evaluation mode (disables dropout, etc.)
         _model.eval()
+
+        print(f'Loaded model "{MODEL_NAME}"', flush=True)
 
     return _tokenizer, _model, _device
 
@@ -246,6 +249,18 @@ def encode(
     # Calculate how many bits we can encode per token based on the number of partitions
     bits_per_token = n_partitions.bit_length() - 1  # log2(n_partitions)
 
+    # Apply chat template if specified in the model config
+    if _MODEL_CONFIG.get('apply_chat_template', False) == True:
+
+        print('Applying chat template to prompt...', flush=True)
+
+        prompt = tokenizer.apply_chat_template(
+            [{'role': 'user', 'content': prompt}],
+            tokenize=False,
+            add_generation_prompt=True,
+            enable_thinking=False
+        )
+
     # Tokenize the prompt and prime the KV cache; get probs for the first token
     input_ids = tokenizer.encode(prompt, return_tensors='pt')
     probs, indices, past_key_values = _get_probs(input_ids, model, device)
@@ -258,8 +273,10 @@ def encode(
 
     while bit_idx < len(bits):
 
-        partitions = _partition_top_k(probs, indices, top_k, n_partitions,
-                                      prev_token_id, tokenizer)
+        partitions = _partition_top_k(
+            probs, indices, top_k, n_partitions,
+            prev_token_id, tokenizer
+        )
 
         # Read the next bits_per_token bits as an integer partition index
         chunk = bits[bit_idx:bit_idx + bits_per_token]
@@ -310,8 +327,21 @@ def decode(
     # Calculate how many bits we can encode per token based on the number of partitions
     bits_per_token = n_partitions.bit_length() - 1
 
+    # Apply chat template if specified in the model config
+    if _MODEL_CONFIG.get('apply_chat_template', False) == True:
+
+        print('Applying chat template to prompt...', flush=True)
+
+        prompt = tokenizer.apply_chat_template(
+            [{'role': 'user', 'content': prompt}],
+            tokenize=False,
+            add_generation_prompt=True,
+            enable_thinking=False
+        )
+
     # Tokenize the prompt and cover text
     prompt_ids = tokenizer.encode(prompt, return_tensors='pt')
+
     # The prompt is tokenized with add_special_tokens=True (default) so the
     # model's BOS token is prepended once. The cover text must not get another
     # BOS, so we use the per-model setting from model_config.json.
@@ -329,8 +359,10 @@ def decode(
     # Iterate over each token in the cover text, determining which partition it belongs to
     for token_id in cover_ids:
 
-        partitions = _partition_top_k(probs, indices, top_k, n_partitions,
-                                      prev_token_id, tokenizer)
+        partitions = _partition_top_k(
+            probs, indices, top_k, n_partitions,
+            prev_token_id, tokenizer
+        )
 
         # Find which partition this token belongs to
         partition_idx = None
