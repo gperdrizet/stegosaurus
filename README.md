@@ -42,16 +42,20 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
 ```
 
+> **Note**: `requirements-dev.txt` installs a CUDA 12.6 wheel by default for wide GPU compatibility (Pascal and later). If you have a newer GPU, you can update it to CUDA 12.8 or 13x for a slight improvement in performance.
+
 ## Configuration
 
-The model is configured via environment variable:
+Model and Gradio port are set via environment variables.
 
 | Variable | Default | Description |
 |---|---|---|
-| `MODEL` | `Qwen/Qwen2.5-1.5B` | HuggingFace model ID. Must be a key in `src/model_config.json`. |
+| `MODEL` | `Qwen/Qwen3-0.6B` | HuggingFace model ID. Must be a key in `src/model_config.json`. |
+| `PORT` | `8080` | Listen port for Gradio app |
 
 Supported models:
 - `google/gemma-3-1b-pt`
+- `Qwen/Qwen3-0.6B`
 - `Qwen/Qwen2.5-1.5B`
 - `Qwen/Qwen2.5-3B`
 - `meta-llama/Llama-3.2-3B`
