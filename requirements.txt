@@ -1,5 +1,8 @@
 # PyTorch CPU only wheel
 #--extra-index-url https://download.pytorch.org/whl/cpu
+# PyTorch CUDA 12.6 wheel for wide GPU compatibility; supports Pascal forward
+# If you have a newer GPU, you can try CUDA 12.8 or 13.x for potentially (slightly) better performance
+--extra-index-url https://download.pytorch.org/whl/cu126
 transformers
 torch
 gradio
