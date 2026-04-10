@@ -10,6 +10,8 @@
 # Required in .env:
 #   DOCKERHUB_TOKEN  - Docker Hub PAT with Read/Write/Delete scope
 #   HF_TOKEN         - Hugging Face token with Write scope
+#   HF_SPACE_REPO    - Hugging Face Space repo URL (e.g. https://huggingface.co/spaces/username/repo)
+#   GCP_PROJECT_ID   - Google Cloud project ID for pushing to GCP container registry
 # =============================================================================
 
 # Read version from the most recent git tag; fall back to 'dev' if untagged
@@ -50,7 +52,7 @@ release: build push
 # Adds the remote automatically on first run.
 deploy-hf:
 	git remote get-url space 2>/dev/null || \
-	  git remote add space https://oauth2:$(HF_TOKEN)@huggingface.co/spaces/gperdrizet/stegosaurus
+	  git remote add space https://oauth2:$(HF_TOKEN)@huggingface.co/spaces/$(HF_SPACE_REPO)
 	git push --force space main
 
 # Push to GCP container registry
