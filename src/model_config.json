@@ -17,7 +17,7 @@
         "cover_add_special_tokens": false,
         "trust_remote_code": false
     },
-    "Qwen/Qwen3-0.6": {
+    "Qwen/Qwen3-0.6B": {
         "default_prompt": "A turtle and a bird were walking in the forest one day. The turtle said, \"",
         "bpe_check_add_special_tokens": false,
         "cover_add_special_tokens": false,
