@@ -60,7 +60,7 @@ Per-model tokenizer settings are in `src/model_config.json`.
 
 ## Deployment
 
-A single image runs on CPU or GPU (includes the CUDA 12.6 PyTorch wheel, supports Pascal / sm_60 and newer).
+A single image runs on CPU or GPU (includes the CUDA 13 PyTorch wheel, supports Truing / sm_75 and newer).
 
 **Build from source:**
 ```bash
@@ -86,4 +86,17 @@ Requires a `DOCKERHUB_TOKEN` in `.env`. Each build produces two tags: `gperdrize
 make deploy-hf  # force push main to the HF Space
 ```
 
+Requires `HF_TOKEN` in `.env`.
+
+See [Deploying Stegosaurus to Hugging Face Spaces](https://github.com/gperdrizet/stegosaurus/blob/main/docs/deployment_options/HF-spaces.md) for detailed set-up instructions.
+
 Requires an `HF_TOKEN` in `.env` (generate at huggingface.co → Settings → Access tokens, with Write scope).
+
+**Push to Google Cloud Artifact Registry:**
+```bash
+make push-gcp
+```
+
+Requires `GCP_PROJECT_ID` in `.env`.
+
+See [Deploying Stegosaurus to Google Cloud Run](github.com/gperdrizet/stegosaurus/blob/main/docs/deployment_options/GCP-cloudrun.md) for detailed set-up instructions.
