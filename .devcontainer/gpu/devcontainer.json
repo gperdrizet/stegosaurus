@@ -63,7 +63,7 @@
 	"onCreateCommand": "mkdir -p models",
 
 	// Use 'postCreateCommand' to run commands once after the container is created
-	"postCreateCommand": "pip install --upgrade pip && pip install -r requirements.txt",
+	"postCreateCommand": "pip install --upgrade pip && pip install -r requirements-dev.txt",
 
 	// Use 'postAttachCommand' to run commands each time a user connects to the container
 	// This runs every time VS Code attaches/reconnects to the container

@@ -4,10 +4,10 @@ FROM python:3.12-slim
 WORKDIR /stegosaurus
 
 # Copy requirements file into app directory
-COPY requirements-deploy.txt .
+COPY requirements.txt .
 
 # Install Python dependencies.
-RUN pip install --no-cache-dir -r requirements-deploy.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Move source code
 COPY src/ src/

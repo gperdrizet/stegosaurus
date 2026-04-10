@@ -21,8 +21,8 @@ title: Stegosaurus
 emoji: 🦕
 colorFrom: green
 colorTo: blue
-sdk: docker
-app_port: 8080
+sdk: gradio
+app_file: demo/app.py
 pinned: true
 short_description: Hide secret messages inside generated text
 ---
@@ -32,8 +32,8 @@ Key fields:
 
 | Field | Value | Notes |
 |---|---|---|
-| `sdk` | `docker` | Tells Spaces to run the Dockerfile |
-| `app_port` | `8080` | Port HF will proxy to; must match `EXPOSE` in Dockerfile |
+| `sdk` | `gradio` | Tells Spaces to run a Gradio app |
+| `app_file` | `demo/app.py` | Path to the Gradio app file |
 
 ## Phase 2 - Create the Space
 
@@ -42,7 +42,7 @@ Key fields:
 3. Fill in the form:
    - **Space name:** `stegosaurus` (or any name - this becomes part of the URL)
    - **License:** choose one (MIT matches the project LICENSE file)
-   - **SDK:** `Docker`
+   - **SDK:** `Gradio`
    - **Hardware:** `CPU Basic` (free)
    - **Visibility:** Public or Private
 4. Click **Create Space**
@@ -72,7 +72,7 @@ git remote add space https://oauth2:${HF_TOKEN}@huggingface.co/spaces/<username>
 git push --force space main
 ```
 
-HF Spaces begins building the container immediately after push. Watch the build log at `https://huggingface.co/spaces/<username>/stegosaurus` - the **Building** badge turns **Running** once the app is live.
+HF Spaces installs dependencies from `requirements.txt` and launches the Gradio app immediately after push. Watch the build log at `https://huggingface.co/spaces/<username>/stegosaurus` - the **Building** badge turns **Running** once the app is live.
 
 To redeploy after changes, just push again (force is only needed the first time):
 ```bash
@@ -81,7 +81,7 @@ git push space main
 
 ## Cold start & model caching
 
-The model downloads from HF Hub on the first request after the Space starts (~2-3 min). HF Spaces caches data in `/data` (persistent across restarts on upgraded hardware) or `/tmp` (ephemeral on free CPU). On the free tier, the container is paused after ~15 min of inactivity and the model cache is lost - the next visitor triggers a cold download.
+The model downloads from HF Hub on the first request after the Space starts (~2-3 min). HF Spaces caches data in `/data` (persistent across restarts on upgraded hardware) or in the Gradio environment's cache directory (ephemeral on free CPU). On the free tier, the Space is paused after ~15 min of inactivity and the model cache is lost - the next visitor triggers a cold download.
 
 ## Smoke test
 
