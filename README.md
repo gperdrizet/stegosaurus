@@ -3,8 +3,8 @@ title: Stegosaurus
 emoji: 🦕
 colorFrom: green
 colorTo: blue
-sdk: docker
-app_port: 8080
+sdk: gradio
+app_file: demo/app.py
 pinned: true
 short_description: Hide secret messages inside generated text
 ---
