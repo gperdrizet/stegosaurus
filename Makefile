@@ -52,3 +52,10 @@ deploy-hf:
 	git remote get-url space 2>/dev/null || \
 	  git remote add space https://oauth2:$(HF_TOKEN)@huggingface.co/spaces/gperdrizet/stegosaurus
 	git push --force space main
+
+# Push to GCP container registry
+push-gcp:
+	docker tag gperdrizet/stegosaurus:latest \
+  		us-central1-docker.pkg.dev/${GCP_PROJECT_ID}/stegosaurus/app:latest
+
+	docker push us-central1-docker.pkg.dev/${GCP_PROJECT_ID}/stegosaurus/app:latest

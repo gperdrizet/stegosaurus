@@ -25,5 +25,9 @@ ENV MODEL=Qwen/Qwen2.5-1.5B
 ENV PORT=8080
 EXPOSE 8080
 
+# Run Hugging Face in offline mode to use local models
+ENV HF_HUB_OFFLINE=1
+ENV TRANSFORMERS_OFFLINE=1
+
 # Launch the app
 CMD ["python", "demo/app.py"]
