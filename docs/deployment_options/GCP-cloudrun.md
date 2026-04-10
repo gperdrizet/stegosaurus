@@ -13,13 +13,25 @@ User → Cloud Run URL (*.run.app) → Cloud Run Service (Gradio, port 8080)
 - **Task size:** 4 vCPU / 16 GB RAM
 - **Cost:** ~$0.002/request (30s encode) - $0 when idle; ~$0.17/hr for a warm instance
 
-## Phase 1 - Configuration
+## Phase 1 - Install and configure gcloud
 
-No code changes are needed. Model and dtype are configured via environment variables in the Cloud Run service (see Phase 3). Defaults for CPU Cloud Run:
+Install the [Google Cloud CLI](https://cloud.google.com/sdk/docs/install) for your OS, then initialize it:
 
-| Variable | Value | Notes |
-|---|---|---|
-| `MODEL` | `Qwen/Qwen2.5-1.5B` | Public model, no HF token required |
+```bash
+gcloud init
+```
+
+This opens a browser to sign in with your Google account and prompts you to select or create a project. Once complete, set your active project if you haven't already:
+
+```bash
+gcloud config set project <project-id>
+```
+
+Verify the install:
+
+```bash
+gcloud --version
+```
 
 ## Phase 2 - Docker image
 
@@ -27,7 +39,7 @@ No code changes are needed. Model and dtype are configured via environment varia
 
 ```bash
 make build
-docker run --rm -p 8080:8080 gperdrizet/stegosaurus:dev
+docker run --rm -p 8080:8080 gperdrizet/stegosaurus:latest
 ```
 
 Open `http://localhost:8080` and verify encode/decode works before pushing to Artifact Registry.
@@ -43,12 +55,6 @@ Two options: the web console or the `gcloud` CLI. Both produce identical results
 | `us-central1` | Iowa (also the only US region with Cloud Run GPU) |
 | `us-east4` | Northern Virginia |
 | `us-west1` | Oregon |
-| `europe-west1` | Belgium |
-| `europe-west2` | London |
-| `europe-west4` | Netherlands |
-| `asia-east1` | Taiwan |
-| `asia-northeast1` | Tokyo |
-| `asia-southeast1` | Singapore |
 
 For the full list: `gcloud run regions list`
 
@@ -63,7 +69,7 @@ For the full list: `gcloud run regions list`
 **Enable APIs**
 1. Go to [console.cloud.google.com](https://console.cloud.google.com) and select your project
 2. Navigate to **APIs & Services > Enable APIs and services**
-3. Search for and enable: **Cloud Run API**, **Artifact Registry API**
+3. Search for and enable: **Cloud Run Admin API**, **Artifact Registry API**
 
 **Create an Artifact Registry repository**
 1. Navigate to **Artifact Registry > Repositories > Create repository**
@@ -75,7 +81,7 @@ The console cannot push images directly - use Docker locally:
 ```bash
 gcloud auth configure-docker <region>-docker.pkg.dev
 
-docker tag stegosaurus \
+docker tag gperdrizet/stegosaurus \
   <region>-docker.pkg.dev/<project>/stegosaurus/app:latest
 
 docker push \
@@ -91,7 +97,6 @@ docker push \
    - Memory: `16 GiB`, CPU: `4`
    - Request timeout: `300`
    - Maximum concurrent requests per instance: `1`
-   - Environment variable: `HF_HOME` = `/tmp/huggingface`, `MODEL` = `Qwen/Qwen2.5-1.5B`
 5. Under **Authentication**, select **Allow unauthenticated invocations**
 6. Click **Create**
 
@@ -149,9 +154,10 @@ gcloud run deploy stegosaurus \
   --cpu 4 \
   --timeout 300 \
   --concurrency 1 \
-  --allow-unauthenticated \
-  --set-env-vars HF_HOME=/tmp/huggingface,MODEL=Qwen/Qwen2.5-1.5B
+  --allow-unauthenticated
 ```
+
+To override the default model, add `--set-env-vars MODEL=<model-id>`.
 
 Cloud Run immediately provides a `https://*.run.app` URL with managed TLS - no load balancer or certificate setup required.
 
@@ -194,6 +200,7 @@ docker push <region>-docker.pkg.dev/<project>/stegosaurus/app:latest
 ```
 
 Then deploy:
+```bash
 gcloud run deploy stegosaurus \
   --image <region>-docker.pkg.dev/<project>/stegosaurus/app:latest \
   --region <region> \
@@ -203,8 +210,7 @@ gcloud run deploy stegosaurus \
   --gpu-type nvidia-l4 \
   --timeout 300 \
   --concurrency 1 \
-  --allow-unauthenticated \
-  --set-env-vars HF_HOME=/tmp/huggingface,MODEL=Qwen/Qwen2.5-1.5B
+  --allow-unauthenticated
 ```
 
 GPU Cloud Run availability is limited to specific regions (currently `us-central1`, `asia-northeast1`, others). Check the [Cloud Run GPU docs](https://cloud.google.com/run/docs/configuring/services/gpu) for the current list.
