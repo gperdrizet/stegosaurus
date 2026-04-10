@@ -27,6 +27,7 @@ EXPOSE 8080
 
 # Run Hugging Face in offline mode to use local models
 ENV HF_HUB_OFFLINE=1
+ENV HF_HUB_DISABLE_TELEMETRY=1
 ENV TRANSFORMERS_OFFLINE=1
 
 # Launch the app
