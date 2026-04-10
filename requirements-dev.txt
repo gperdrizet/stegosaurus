@@ -1,9 +1,12 @@
+# Use CUDA 12.6 for wide GPU compatibility; supports Pascal forward
+# If you have a newer GPU, you can try CUDA 12.8 or 13.0 for 
+# potentially (slightly) better performance
+--extra-index-url https://download.pytorch.org/whl/cu126
 ipykernel
 ipywidgets
 matplotlib
 numpy
 pandas
 transformers
---extra-index-url https://download.pytorch.org/whl/cu126
 torch==2.11.0
 gradio
