@@ -1,5 +1,5 @@
 # PyTorch CPU only wheel
---extra-index-url https://download.pytorch.org/whl/cpu
+#--extra-index-url https://download.pytorch.org/whl/cpu
 transformers
 torch
 gradio
