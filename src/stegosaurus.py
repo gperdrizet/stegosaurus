@@ -186,8 +186,8 @@ def _partition_top_k(probs, indices, top_k, n_partitions, prev_token_id, tokeniz
     equal probability mass using greedy assignment.
 
     Only tokens that are BPE-safe (i.e. do not merge with prev_token_id
-    when decoded to text and re-encoded) are included.  This guarantees
-    that encode and decode produce identical partition assignments.
+    when decoded to text and re-encoded) are included.  Special tokens
+    (e.g. <|im_end|>) are also excluded so they never appear in cover text.
 
     Returns a list of n_partitions lists, each containing (token_id, prob) pairs.
     '''
@@ -196,12 +196,20 @@ def _partition_top_k(probs, indices, top_k, n_partitions, prev_token_id, tokeniz
     top_probs = probs[:top_k]
     top_indices = indices[:top_k]
 
+    # Build a set of special token ids for fast membership testing
+    special_ids = set(tokenizer.all_special_ids)
+
     # Create empty partitions and track their total mass
     partitions = [[] for _ in range(n_partitions)]
     partition_mass = [0.0] * n_partitions
 
     # Loop on the top_k tokens in descending order of probability
     for token_id, prob in zip(top_indices.tolist(), top_probs.tolist()):
+
+        # Skip special tokens (e.g. <|im_end|>, <|endoftext|>) so they never
+        # appear in cover text and don't interfere with the partition assignment
+        if token_id in special_ids:
+            continue
 
         # Skip tokens that would merge with the previous token under BPE re-encoding
         if not _is_bpe_safe(prev_token_id, token_id, tokenizer):
@@ -276,18 +284,6 @@ def encode(
     # Calculate how many bits we can encode per token based on the number of partitions
     bits_per_token = n_partitions.bit_length() - 1  # log2(n_partitions)
 
-    # Apply chat template if specified in the model config
-    if _MODEL_CONFIG.get('apply_chat_template', False) == True:
-
-        logger.debug('Applying chat template to prompt')
-
-        prompt = tokenizer.apply_chat_template(
-            [{'role': 'user', 'content': prompt}],
-            tokenize=False,
-            add_generation_prompt=True,
-            enable_thinking=False
-        )
-
     logger.info('Encoding message (%d chars) with top_k=%d, n_partitions=%d', len(message), top_k, n_partitions)
 
     # Tokenize the prompt and prime the KV cache; get probs for the first token
@@ -357,18 +353,6 @@ def decode(
 
     # Calculate how many bits we can encode per token based on the number of partitions
     bits_per_token = n_partitions.bit_length() - 1
-
-    # Apply chat template if specified in the model config
-    if _MODEL_CONFIG.get('apply_chat_template', False) == True:
-
-        logger.debug('Applying chat template to prompt')
-
-        prompt = tokenizer.apply_chat_template(
-            [{'role': 'user', 'content': prompt}],
-            tokenize=False,
-            add_generation_prompt=True,
-            enable_thinking=False
-        )
 
     logger.info('Decoding cover text (%d chars) with top_k=%d, n_partitions=%d', len(cover_text), top_k, n_partitions)
 
