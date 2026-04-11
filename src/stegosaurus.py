@@ -43,7 +43,7 @@ _LOG_DIR = os.path.join(os.path.dirname(__file__), '..', 'logs')
 os.makedirs(_LOG_DIR, exist_ok=True)
 
 logger = logging.getLogger('stegosaurus')
-logger.setLevel(logging.DEBUG)
+logger.setLevel(os.environ.get('LOG_LEVEL', 'INFO').upper())
 
 _formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
 
