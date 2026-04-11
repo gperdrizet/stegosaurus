@@ -19,7 +19,7 @@ COPY models/ /tmp/huggingface/
 
 # Set directory for model downloads and cache
 ENV HF_HOME=/tmp/huggingface
-ENV MODEL=Qwen/Qwen2.5-1.5B
+ENV MODEL=Qwen/Qwen3-0.6B
 
 # Set and expose port for Gradio
 ENV PORT=8080
