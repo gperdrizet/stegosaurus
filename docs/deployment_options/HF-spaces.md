@@ -7,7 +7,7 @@ User → HF Spaces URL (https://<username>-<space>.hf.space) → Gradio app + mo
 ```
 
 - **Compute:** HF-managed CPU (free tier: 2 vCPU / 16 GB RAM)
-- **Model:** `Qwen/Qwen2.5-1.5B` or any public model - no HF token required for public models
+- **Model:** `Qwen/Qwen3-0.6B` (~1.5 GB) - downloads from HF Hub on first start; no HF token required for public models
 - **Cost:** Free (CPU); upgraded hardware available on paid tiers
 - **Encode latency:** ~30s (CPU)
 
@@ -94,7 +94,7 @@ The Space will automatically restart with the new environment variable.
 
 ## Cold start & model caching
 
-The model downloads from HF Hub on the first request after the Space starts (~2-3 min). HF Spaces caches data in `/data` (persistent across restarts on upgraded hardware) or in the Gradio environment's cache directory (ephemeral on free CPU). On the free tier, the Space is paused after ~15 min of inactivity and the model cache is lost - the next visitor triggers a cold download.
+The model (`Qwen/Qwen3-0.6B`, ~1.5 GB) downloads from HF Hub on the first request after the Space starts (~2-3 min). HF Spaces caches data in `/data` (persistent across restarts on upgraded hardware) or in the Gradio environment's cache directory (ephemeral on free CPU). On the free tier, the Space is paused after ~15 min of inactivity and the model cache is lost - the next visitor triggers a cold download.
 
 ## Smoke test
 

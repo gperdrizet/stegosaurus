@@ -4,12 +4,12 @@
 
 ```
 User → Cloud Run URL (*.run.app) → Cloud Run Service (Gradio, port 8080)
-              ↓ (automatic TLS, no ALB needed)        ↓ (cold start)
-         Custom domain (optional, 1 command)    Hugging Face (model download)
+              ↓ (automatic TLS, no ALB needed)
+         Custom domain (optional, 1 command)
 ```
 
 - **Compute:** Cloud Run (serverless, scales to zero), CPU-only
-- **Model:** `Qwen/Qwen2.5-1.5B` - public (no HF token), ~6 GB float32
+- **Model:** `Qwen/Qwen3-0.6B` - included in Docker image (~1.5 GB), runs offline
 - **Task size:** 4 vCPU / 16 GB RAM
 - **Cost:** ~$0.002/request (30s encode) - $0 when idle; ~$0.17/hr for a warm instance
 
@@ -158,7 +158,7 @@ gcloud run deploy stegosaurus \
   --allow-unauthenticated
 ```
 
-To override the default model, add `--set-env-vars MODEL=<model-id>`.
+To override the default model, add `--set-env-vars MODEL=<model-id>` (note: this will download the model at runtime, adding ~2-3 min to cold start).
 
 Cloud Run immediately provides a `https://*.run.app` URL with managed TLS - no load balancer or certificate setup required.
 
@@ -180,13 +180,13 @@ gcloud run services update stegosaurus \
 ```
 
 
-## Cold start & caching
+## Cold start & model offline mode
 
-The model (~2 GB) downloads from Hugging Face when a new instance starts (~2-3 min first request). It is cached in `/tmp/huggingface` for the lifetime of the instance.
+The model (`Qwen/Qwen3-0.6B`, ~1.5 GB) is included in the Docker image and runs in offline mode - no runtime download needed. Cold starts are faster than external model downloads (typically 10-20 seconds for container boot).
 
-To keep one instance warm and eliminate cold starts, see the "Keep one instance warm" step in phase 3 above. This adds ~$0.17/hr for a continuously running instance.
+To keep one instance warm and eliminate cold starts entirely, see the "Keep one instance warm" step in phase 3 above. This adds ~$0.17/hr for a continuously running instance.
 
-**To persist the cache across restarts**, mount a Cloud Storage FUSE volume at `HF_HOME` - avoids the 2-3 min download on every cold start.
+**Note:** If you override the model with `MODEL=<other-model-id>`, the new model will download from Hugging Face at runtime (~2-3 min), and offline mode will be disabled.
 
 
 ## GPU option (Cloud Run with NVIDIA L4)
@@ -196,7 +196,7 @@ Cloud Run supports GPUs since 2024. Adding `--gpu 1` gives you an NVIDIA L4 (24 
 Build and push the image as normal:
 ```bash
 make build
-docker tag gperdrizet/stegosaurus:dev <region>-docker.pkg.dev/<project>/stegosaurus/app:latest
+docker tag gperdrizet/stegosaurus:latest <region>-docker.pkg.dev/<project>/stegosaurus/app:latest
 docker push <region>-docker.pkg.dev/<project>/stegosaurus/app:latest
 ```
 
@@ -217,7 +217,7 @@ gcloud run deploy stegosaurus \
 
 GPU Cloud Run availability is limited to specific regions (currently `us-central1`, `asia-northeast1`, others). Check the [Cloud Run GPU docs](https://cloud.google.com/run/docs/configuring/services/gpu) for the current list.
 
-**Cold start caveat:** GPU instances have a significantly longer cold start than CPU - container boot + GPU allocation + CUDA runtime init + model download adds up to ~5–7 min. This makes scale-to-zero impractical for a demo. Set `--min-instances 1` to keep one instance warm at all times (NVIDIA L4 costs ~$0.70/hr).
+**Cold start caveat:** GPU instances have a longer cold start than CPU - container boot + GPU allocation + CUDA runtime init adds up to ~30-60 seconds (no model download needed since it's in the image). For production use, set `--min-instances 1` to keep one instance warm at all times (NVIDIA L4 costs ~$0.70/hr).
 
 
 ## Smoke test
