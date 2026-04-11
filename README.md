@@ -86,6 +86,7 @@ Model and Gradio port are set via environment variables.
 | `PORT` | `8080` | Listen port for Gradio app |
 | `TOP_K` | `20` | Number of top tokens to consider at each generation step |
 | `N_PARTITIONS` | `2` | Partitions per token; must be a power of 2 (bits per token = log₂) |
+| `ROOT_PATH` | _(empty)_ | Set to the public service URL when running behind a reverse proxy (e.g. Cloud Run) |
 | `LOG_LEVEL` | `INFO` | Logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
 
 Supported models:

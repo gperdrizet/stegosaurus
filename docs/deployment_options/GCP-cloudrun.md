@@ -154,6 +154,7 @@ gcloud run deploy stegosaurus \
   --cpu 4 \
   --timeout 300 \
   --concurrency 1 \
+  --set-env-vars ROOT_PATH=https://<your-service>.run.app \
   --allow-unauthenticated
 ```
 
@@ -210,6 +211,7 @@ gcloud run deploy stegosaurus \
   --gpu-type nvidia-l4 \
   --timeout 300 \
   --concurrency 1 \
+  --set-env-vars ROOT_PATH=https://<your-service>.run.app \
   --allow-unauthenticated
 ```
 
