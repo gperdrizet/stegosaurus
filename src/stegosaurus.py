@@ -30,8 +30,8 @@ if MODEL_NAME not in _ALL_CONFIGS:
 
 _MODEL_CONFIG = _ALL_CONFIGS[MODEL_NAME]
 
-TOP_K = 50                      # Number of top tokens to consider at each step
-N_PARTITIONS = 2                # Must be a power of 2; bits per token = log2(N_PARTITIONS)
+TOP_K = int(os.environ.get('TOP_K', 20))            # Number of top tokens to consider at each step
+N_PARTITIONS = int(os.environ.get('N_PARTITIONS', 2))  # Must be a power of 2; bits per token = log2(N_PARTITIONS)
 EOM = [1, 1, 1, 1, 1, 1, 1, 1]  # 0xFF - never valid UTF-8; marks end of message
 PROMPT = _MODEL_CONFIG['default_prompt']
 
@@ -325,6 +325,27 @@ def encode(
         if bit_idx < len(bits):
             next_input = torch.tensor([[chosen_id]], dtype=torch.long)
             probs, indices, past_key_values = _get_probs(next_input, model, device, past_key_values)
+
+    # Continue generating greedily until we reach the end of a sentence, so the
+    # cover text doesn't cut off mid-sentence. Cap at 200 tokens to avoid runaway.
+    special_ids = set(tokenizer.all_special_ids)
+    for _ in range(200):
+
+        # Advance the KV cache with the last encoded token
+        next_input = torch.tensor([[chosen_id]], dtype=torch.long)
+        probs, indices, past_key_values = _get_probs(next_input, model, device, past_key_values)
+
+        # Pick the highest-probability non-special token
+        for token_id, _ in zip(indices.tolist(), probs.tolist()):
+            if token_id not in special_ids:
+                chosen_id = token_id
+                break
+
+        cover_ids.append(chosen_id)
+
+        # Stop at the end of a sentence
+        if tokenizer.decode(cover_ids).rstrip().endswith(('.', '!', '?')):
+            break
 
     cover_text = tokenizer.decode(cover_ids)
     logger.info('Encoding complete: %d tokens generated', len(cover_ids))

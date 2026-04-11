@@ -84,6 +84,8 @@ Model and Gradio port are set via environment variables.
 |---|---|---|
 | `MODEL` | `Qwen/Qwen3-0.6B` | HuggingFace model ID. Must be a key in `src/model_config.json`. |
 | `PORT` | `8080` | Listen port for Gradio app |
+| `TOP_K` | `20` | Number of top tokens to consider at each generation step |
+| `N_PARTITIONS` | `2` | Partitions per token; must be a power of 2 (bits per token = log₂) |
 | `LOG_LEVEL` | `INFO` | Logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
 
 Supported models:
