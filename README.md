@@ -24,7 +24,7 @@ Hide secret messages inside naturally-generated text using a large language mode
 # CPU
 docker run -p 8080:8080 gperdrizet/stegosaurus:latest
 
-# GPU (requires NVIDIA Container Toolkit; model uses ~3.5 GB VRAM)
+# GPU (requires NVIDIA Container Toolkit; model uses ~1.5 GB VRAM)
 docker run --gpus all -p 8080:8080 gperdrizet/stegosaurus:latest
 ```
 
