@@ -3,4 +3,5 @@
 .gradio/
 .vscode/
 docs/
+logs/
 notebooks/
