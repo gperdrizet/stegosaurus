@@ -2,7 +2,9 @@
 
 import argparse
 import json
+import logging
 import os
+from logging.handlers import RotatingFileHandler
 
 import torch
 import torch.nn.functional as F
@@ -34,6 +36,31 @@ EOM = [1, 1, 1, 1, 1, 1, 1, 1]  # 0xFF - never valid UTF-8; marks end of message
 PROMPT = _MODEL_CONFIG['default_prompt']
 
 # ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+
+_LOG_DIR = os.path.join(os.path.dirname(__file__), '..', 'logs')
+os.makedirs(_LOG_DIR, exist_ok=True)
+
+logger = logging.getLogger('stegosaurus')
+logger.setLevel(logging.DEBUG)
+
+_formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
+
+_stream_handler = logging.StreamHandler()
+_stream_handler.setFormatter(_formatter)
+
+_file_handler = RotatingFileHandler(
+    os.path.join(_LOG_DIR, 'stegosaurus.log'),
+    maxBytes=1_000_000,  # 1 MB per file
+    backupCount=3,
+)
+_file_handler.setFormatter(_formatter)
+
+logger.addHandler(_stream_handler)
+logger.addHandler(_file_handler)
+
+# ---------------------------------------------------------------------------
 # Shared model loading (lazy, module-level cache)
 # ---------------------------------------------------------------------------
 
@@ -51,11 +78,11 @@ def _load_model():
 
         # Set device to GPU if available, otherwise CPU
         _device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        print(f'Device: {_device} (cuda available: {torch.cuda.is_available()}, torch CUDA: {torch.version.cuda})', flush=True)
+        logger.info('Device: %s (cuda available: %s, torch CUDA: %s)', _device, torch.cuda.is_available(), torch.version.cuda)
 
         # Use bfloat16 on GPU, float32 on CPU
         _dtype = torch.bfloat16 if _device.type == 'cuda' else torch.float32
-        print(f'Using dtype {_dtype}', flush=True)
+        logger.info('Using dtype %s', _dtype)
 
         # Load the tokenizer
         _tokenizer = AutoTokenizer.from_pretrained(
@@ -73,7 +100,7 @@ def _load_model():
         # Put model in evaluation mode (disables dropout, etc.)
         _model.eval()
 
-        print(f'Loaded model "{MODEL_NAME}"', flush=True)
+        logger.info('Loaded model "%s"', MODEL_NAME)
 
     return _tokenizer, _model, _device
 
@@ -252,7 +279,7 @@ def encode(
     # Apply chat template if specified in the model config
     if _MODEL_CONFIG.get('apply_chat_template', False) == True:
 
-        print('Applying chat template to prompt...', flush=True)
+        logger.debug('Applying chat template to prompt')
 
         prompt = tokenizer.apply_chat_template(
             [{'role': 'user', 'content': prompt}],
@@ -260,6 +287,8 @@ def encode(
             add_generation_prompt=True,
             enable_thinking=False
         )
+
+    logger.info('Encoding message (%d chars) with top_k=%d, n_partitions=%d', len(message), top_k, n_partitions)
 
     # Tokenize the prompt and prime the KV cache; get probs for the first token
     input_ids = tokenizer.encode(prompt, return_tensors='pt')
@@ -301,7 +330,9 @@ def encode(
             next_input = torch.tensor([[chosen_id]], dtype=torch.long)
             probs, indices, past_key_values = _get_probs(next_input, model, device, past_key_values)
 
-    return tokenizer.decode(cover_ids)
+    cover_text = tokenizer.decode(cover_ids)
+    logger.info('Encoding complete: %d tokens generated', len(cover_ids))
+    return cover_text
 
 
 def decode(
@@ -330,7 +361,7 @@ def decode(
     # Apply chat template if specified in the model config
     if _MODEL_CONFIG.get('apply_chat_template', False) == True:
 
-        print('Applying chat template to prompt...', flush=True)
+        logger.debug('Applying chat template to prompt')
 
         prompt = tokenizer.apply_chat_template(
             [{'role': 'user', 'content': prompt}],
@@ -338,6 +369,8 @@ def decode(
             add_generation_prompt=True,
             enable_thinking=False
         )
+
+    logger.info('Decoding cover text (%d chars) with top_k=%d, n_partitions=%d', len(cover_text), top_k, n_partitions)
 
     # Tokenize the prompt and cover text
     prompt_ids = tokenizer.encode(prompt, return_tensors='pt')
@@ -401,7 +434,9 @@ def decode(
 
     # Strip the EOM marker and decode the remaining bits to a string
     message_bits = recovered_bits[:-8]
-    return _decode_bits(message_bits)
+    message = _decode_bits(message_bits)
+    logger.info('Decoding complete: recovered %d chars', len(message))
+    return message
 
 
 if __name__ == '__main__':
