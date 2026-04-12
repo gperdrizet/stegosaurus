@@ -117,6 +117,7 @@ with gr.Blocks(title='Stegosaurus') as demo:
                 inputs=[prompt_input, message_input],
                 outputs=[cover_output, encode_status],
                 show_progress='hidden',
+                api_name='encode',
             )
 
             copy_button.click(
@@ -159,6 +160,7 @@ with gr.Blocks(title='Stegosaurus') as demo:
                 inputs=[decode_prompt_input, cover_input],
                 outputs=[message_output, decode_status],
                 show_progress='hidden',
+                api_name='decode',
             )
 
 
@@ -179,6 +181,7 @@ if __name__ == '__main__':
     _manager = WorkerManager(
         ctx=_ctx,
         job_queue=_job_queue,
+        max_workers=int(os.environ.get('MAX_WORKERS', 0)),
         max_memory_bytes=parse_memory_limit(os.environ.get('MAX_MEMORY', '0')),
         min_workers=int(os.environ.get('MIN_WORKERS', 1)),
         scale_interval=float(os.environ.get('SCALE_INTERVAL', 2.0)),

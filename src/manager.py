@@ -56,9 +56,13 @@ class WorkerManager(threading.Thread):
         multiprocessing context (must be 'spawn').
     job_queue:
         Shared queue from which worker processes consume Job objects.
+    max_workers:
+        Hard cap on the number of worker processes. 0 (default) means
+        auto-calculate from the memory budget.
     max_memory_bytes:
         Hard memory budget in bytes. 0 (default) means auto-detect: queries
         available VRAM (GPU) or RAM (CPU) and reserves 10% headroom.
+        Ignored when max_workers is set explicitly.
     min_workers:
         Minimum number of always-running workers.
     scale_interval:
@@ -74,6 +78,7 @@ class WorkerManager(threading.Thread):
         self,
         ctx,
         job_queue,
+        max_workers: int = 0,
         max_memory_bytes: int = 0,
         min_workers: int = 1,
         scale_interval: float = 2.0,
@@ -99,14 +104,24 @@ class WorkerManager(threading.Thread):
         # Workers report their actual footprint here after loading
         self._memory_report_queue = ctx.Queue()
 
-        # Initial max_workers estimate from model_config.json
-        self._max_workers = self._estimate_max_workers()
-        logger.info(
-            'WorkerManager init: min=%d max=%d memory_budget=%s',
-            self._min_workers,
-            self._max_workers,
-            f'{max_memory_bytes / 1024**2:.0f} MB' if max_memory_bytes else 'auto',
-        )
+        # If max_workers was given explicitly, use it; otherwise estimate from memory
+        if max_workers:
+            self._max_workers = max(max_workers, min_workers)
+            self._max_workers_explicit = True
+            logger.info(
+                'WorkerManager init: min=%d max=%d (explicit)',
+                self._min_workers,
+                self._max_workers,
+            )
+        else:
+            self._max_workers_explicit = False
+            self._max_workers = self._estimate_max_workers()
+            logger.info(
+                'WorkerManager init: min=%d max=%d memory_budget=%s',
+                self._min_workers,
+                self._max_workers,
+                f'{max_memory_bytes / 1024**2:.0f} MB' if max_memory_bytes else 'auto',
+            )
 
     # ------------------------------------------------------------------
     # Public API
@@ -212,7 +227,7 @@ class WorkerManager(threading.Thread):
                 break
 
             footprint_bytes = footprint_mb * 1024 ** 2
-            if self._max_memory_bytes and footprint_bytes > 0:
+            if not self._max_workers_explicit and self._max_memory_bytes and footprint_bytes > 0:
                 new_max = max(1, int(self._max_memory_bytes / footprint_bytes))
                 if new_max != self._max_workers:
                     logger.info(
