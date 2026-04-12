@@ -155,7 +155,42 @@ flowchart TD
 - The `WorkerManager` background thread polls the queue depth every `SCALE_INTERVAL` seconds and spawns or removes workers to match load, subject to the `MAX_MEMORY` budget.
 - After loading, each worker reports its actual memory footprint so `WorkerManager` can refine the `max_workers` calculation.
 
-### 5.4 Scaling out
+### 5.4 CPU-only worker scaling
+
+On a CPU-only host, RAM is rarely the binding constraint — even a modest server can hold
+several model replicas in system memory — but PyTorch uses all available cores for each
+forward pass by default. If `max_workers` is derived from the memory budget alone, the
+pool spawns far more workers than there are cores and they thrash, increasing median
+latency dramatically (2+ minutes observed in testing against the Qwen3-0.6B model).
+
+The `WorkerManager` applies two corrections when no CUDA device is detected:
+
+1. **Core-count cap.** `max_workers` is additionally bounded by `os.sched_getaffinity(0)`
+   (or `os.cpu_count()` on non-Linux hosts). This respects container and cgroup CPU
+   quotas, ensuring the number of workers never exceeds the number of cores available
+   to the process.
+
+2. **Dynamic thread budget.** A shared `multiprocessing.Value('i', n)` called
+   `threads_per_worker` is maintained by the manager and read by every worker at the
+   start of each job to call `torch.set_num_threads(n)`. After every scale event the
+   manager writes `cpu_count // alive_workers` into this value. The result:
+
+   | Alive workers | Threads per worker | Total threads in use |
+   |---|---|---|
+   | 1 | `cpu_count` | `cpu_count` |
+   | 2 | `cpu_count // 2` | `cpu_count` (±1) |
+   | N | `cpu_count // N` | `cpu_count` (±N−1) |
+
+   A single idle worker uses all cores. As demand grows and more workers are spawned,
+   each worker's thread slice shrinks — individual jobs run slower — but aggregate
+   throughput increases because N workers process N jobs in parallel. Scale-down
+   restores the full thread budget to the remaining workers automatically.
+
+   This behaviour is a no-op on GPU hosts: `_available_cpu_count()` returns 0 when
+   `torch.cuda.is_available()` is true, and `_update_threads_per_worker` skips the
+   update entirely.
+
+### 5.5 Scaling out
 
 To serve more concurrent users:
 
@@ -167,11 +202,11 @@ To serve more concurrent users:
 
 The task-queue approach cleanly decouples the web frontend (stateless, cheap) from the GPU workers (stateful, expensive). This is the microservices architecture described in [deployment.md](deployment.md).
 
-### 5.5 Model size vs. latency
+### 5.6 Model size vs. latency
 
 Larger models produce more natural-sounding text but are slower and more memory-hungry. The default model is `Qwen/Qwen3-0.6B` (~1.5 GB VRAM in bfloat16, ~2.5 GB CPU RAM in float32), which balances quality and speed for a demo. The 1.5B Qwen2.5 model is a step up in quality and still fits on a modest GPU (~3 GB VRAM). A 7B model in bfloat16 requires ~14 GB for weights alone, which fits on a 16 GB T4 with limited headroom, or comfortably on a 24 GB GPU (L4, A10G). Expect roughly 5x the per-token latency of the 0.6B model.
 
-### 5.6 Prompt sensitivity
+### 5.7 Prompt sensitivity
 
 Cover text quality and capacity are both sensitive to the prompt. A short, generic prompt gives the model broad stylistic freedom; a domain-specific prompt can produce more focused output but may reduce the effective vocabulary available for partitioning. The prompt is not part of the cover text and must be shared between encoder and decoder.
 
