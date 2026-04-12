@@ -62,7 +62,7 @@ pip install -r requirements-dev.txt
 
 ### 2.3. CUDA version
 
-By default, `requirements-dev.txt` installs a CUDA 12.6 wheel by for wide GPU compatibility (Pascal and later). If you have a newer GPU, you can update it to CUDA 12.8 or 13x for a slight improvement in performance.
+By default, `requirements-dev.txt` installs a CUDA 12.6 wheel for wide GPU compatibility (Pascal and later). If you have a newer GPU, you can update it to CUDA 12.8 or 13x for a slight improvement in performance.
 
 
 ### 2.4. Hugging Face authentication
@@ -81,7 +81,18 @@ Generate a token at huggingface.co → Settings → Access Tokens (Read scope is
 The app uses a queue-based worker pool. The Gradio server enqueues jobs onto a shared `job_queue`; a pool of worker processes (each holding the model in memory) consume and process them. A background `WorkerManager` thread auto-scales the pool based on queue depth and available memory. See the [technical whitepaper](https://github.com/gperdrizet/stegosaurus/blob/main/docs/whitepaper.md#53-in-process-worker-pool) for the full architecture diagram and implementation details.
 
 
-## 4. Configuration
+## 4. Load testing
+
+`notebooks/03-scaling_experiment.ipynb` measures how the worker pool behaves under load. Three experiments are included:
+
+1. **Baseline** (`MIN_WORKERS=1 MAX_WORKERS=1`) — fires `BASELINE_REQUESTS_PER_LEVEL` requests at each concurrency level in `BASELINE_CONCURRENCY_LEVELS` and plots median / p95 latency vs concurrency.
+2. **Worker sweep** — holds concurrency fixed at `SWEEP_CONCURRENCY` and varies `MAX_WORKERS`; plots latency and throughput side-by-side for each pool size.
+3. **Dynamic scaling trace** — starts with `MIN_WORKERS=1 MAX_WORKERS=4`, fires a burst of `BURST_REQUESTS` requests, and plots worker count over time while the pool auto-scales up and then quiesces back to `MIN_WORKERS`.
+
+The notebook requires a running Stegosaurus instance. Set `APP_URL` in the configuration cell (default `http://localhost:8080`) before running.
+
+
+## 5. Configuration
 
 Model and Gradio port are set via environment variables.
 
@@ -108,11 +119,11 @@ Supported models:
 
 Per-model tokenizer settings are in `src/model_config.json`.
 
-## 4. Deployment
+## 6. Deployment
 
-### 4.1. Docker
+### 6.1. Docker
 
-The app is published as a single image which runs on CPU or GPU. The image includes the CUDA 12.6 PyTorch wheel for wide GPU support (Pascal sm_60 and newer). If a GPU is not avalible, the model falls back to CPU inference automatically at runtime. The `qwen3-0.6B` (default) model is included in the image for running in offline environments. Hugging Face telemetry & model update checks are disabled via environment variables.
+The app is published as a single image which runs on CPU or GPU. The image includes the CUDA 12.6 PyTorch wheel for wide GPU support (Pascal sm_60 and newer). If a GPU is not available, the model falls back to CPU inference automatically at runtime. The `qwen3-0.6B` (default) model is included in the image for running in offline environments. Hugging Face telemetry & model update checks are disabled via environment variables.
 
 **Build from source:**
 ```bash
@@ -134,7 +145,7 @@ make release  # build + push in one step
 
 Requires a `DOCKERHUB_TOKEN` in `.env`. Each build produces two tags: `gperdrizet/stegosaurus:v1.0.0` and `gperdrizet/stegosaurus:latest`. Builds on untagged commits use `dev` (e.g. `gperdrizet/stegosaurus:dev`).
 
-### 4.2. Hugging Face Spaces
+### 6.2. Hugging Face Spaces
 
 Hugging Face Space deployment uses a force push to the repo specified by `HF_SPACE_REPO` in `.env`. Requires `HF_TOKEN` with write access in `.env`.
 
@@ -146,7 +157,7 @@ See [Deploying Stegosaurus to Hugging Face Spaces](https://github.com/gperdrizet
 
 Requires an `HF_TOKEN` in `.env` (generate at huggingface.co → Settings → Access tokens, with Write scope).
 
-### 4.3. Google Cloud Run
+### 6.3. Google Cloud Run
 
 The Docker image build is configured for deployment to Google Cloud Run via and an artifact registry. To push a new image build:
 

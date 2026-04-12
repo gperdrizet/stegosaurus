@@ -5,7 +5,7 @@
 
 ## 1. Overview
 
-Stegosaurus hides an arbitrary binary message inside naturally-generated text by exploiting the probability distributions produced by a large language model (LLM). At each step of text generation, the model's next-token distribution is partitioned into equal-probability bins. A chunk of the secret message selects which bin to sample from, and the highest-probability token in that bin is appended to the cover text. A recipient with the same model can reverse the process deterministically - no shared key or out-of-band metadata is required.
+Stegosaurus hides an arbitrary user-supplied message inside generated cover text by exploiting the probability distributions produced by a large language model (LLM). At each step of text generation, the model's next-token distribution is partitioned into equal-probability bins. A chunk of the secret message selects which bin to sample from, and the highest-probability token in that bin is appended to the cover text. A recipient with the same model can reverse the process deterministically - no shared key or out-of-band metadata is required.
 
 The approach is a discrete variant of the arithmetic-coding scheme introduced by Ziegler et al. (2019) in *Neural Linguistic Steganography*, simplified to greedy (argmax) sampling within each bin.
 
@@ -16,30 +16,20 @@ The approach is a discrete variant of the arithmetic-coding scheme introduced by
 
 A UTF-8 string is serialized to a flat list of bits, MSB-first. An 8-bit end-of-message (EOM) marker - the byte `0xFF` - is appended after the message bits. Because `0xFF` is never a valid UTF-8 byte, it is an unambiguous sentinel regardless of message content. The decoder reads tokens until it sees `0xFF` at a byte boundary; no out-of-band length is required.
 
-```
-bits = utf8_bytes_as_bits(message) || 0xFF
-```
-
-This costs 8 bits (8 tokens at 1 bit/token), versus 32 bits for a fixed-width length header - a saving of 24 tokens per message.
 
 ### 2.2 Top-k partitioning
 
-At each generation step the model produces a probability distribution over its vocabulary. Stegosaurus restricts attention to the top-`k` tokens by probability (default `k = 50`), discarding the long tail.
+At each generation step the model produces a probability distribution over its vocabulary. Stegosaurus restricts attention to the top-`k` tokens by probability (default `k = 20`), discarding the long tail.
 
 These `k` candidates are partitioned into `n` bins (default `n = 2`, i.e. one bit per token) using a greedy equal-mass assignment: tokens are considered in descending probability order and placed into whichever bin currently holds the least total probability mass. This balances the bins as well as possible given the discrete token set.
-
-With `n = 2`:
-
-```
-partition 0: tokens whose cumulative probability ≈ 0.5
-partition 1: tokens whose cumulative probability ≈ 0.5
-```
 
 Increasing `n` to 4 or 8 encodes 2 or 3 bits per token, producing shorter cover text at the cost of less freedom in token selection.
 
 ### 2.3 Token selection (encode)
 
 The next `log2(n)` bits of the message are read as an integer index `i`. The highest-probability BPE-safe token in partition `i` is appended to the cover text. The extended sequence is fed back as context for the next step.
+
+Once all message bits (including the EOM marker) have been encoded, generation continues greedily — always picking the highest-probability non-special token — until the cover text ends with a sentence-terminal character (`.`, `!`, or `?`), capped at 200 extra tokens. This prevents the cover text from cutting off mid-sentence without affecting the hidden payload.
 
 ### 2.4 Bit recovery (decode)
 
@@ -66,6 +56,9 @@ Tokens that fail this check are silently excluded from all partitions. Because b
 |---|---|
 | `src/stegosaurus.py` | Core encode/decode logic and CLI |
 | `src/model_config.json` | Per-model tokenizer and loading configuration |
+| `src/job.py` | `Job` dataclass shared between the Gradio process and worker processes |
+| `src/worker.py` | Worker process entry point; loads model once, loops on `job_queue` |
+| `src/manager.py` | `WorkerManager` thread; auto-scales the worker pool based on queue depth and memory budget |
 | `demo/app.py` | Gradio web interface |
 
 ### 3.2 Model configuration
@@ -75,16 +68,16 @@ Rather than hardcoding model-specific behavior, `model_config.json` externalizes
 | Field | Purpose |
 |---|---|
 | `default_prompt` | Seed text; must be identical for encode and decode |
-| `dtype` | Tensor dtype (`bfloat16` on GPU, `float32` on CPU) |
 | `bpe_check_add_special_tokens` | Whether to prepend BOS during the BPE safety check |
 | `cover_add_special_tokens` | Whether to prepend BOS when tokenizing the cover text for decode |
 | `trust_remote_code` | Passed to `from_pretrained`; `false` for all supported models |
+| `memory_mb` | Estimated peak memory footprint for the model; used by `WorkerManager` to calculate the initial `max_workers` before the first worker reports its actual footprint |
 
-Supported models: `google/gemma-3-1b-pt`, `Qwen/Qwen2.5-1.5B`, `Qwen/Qwen2.5-3B`, `meta-llama/Llama-3.2-3B`.
+Supported models: `google/gemma-3-1b-pt`, `Qwen/Qwen3-0.6B`, `Qwen/Qwen2.5-1.5B`, `Qwen/Qwen2.5-3B`, `meta-llama/Llama-3.2-3B`.
 
 ### 3.3 Lazy model loading
 
-The model is loaded once per process and cached in module-level variables. Subsequent calls to `encode` or `decode` reuse the same model and tokenizer objects. This is safe for single-threaded use; concurrent calls would require a lock or a worker pool.
+The model is loaded once per process and cached in module-level variables. Subsequent calls to `encode` or `decode` reuse the same model and tokenizer objects within the same process. Concurrency is handled by the worker pool (see section 5.3): each worker process has its own independent model copy, so no cross-process locking is needed.
 
 ### 3.4 KV cache
 
@@ -94,14 +87,14 @@ This reduces per-step compute from O(N) in context length to O(1), making the ov
 
 ### 3.5 Capacity
 
-With default settings (`top_k = 50`, `n_partitions = 2`), each generated token encodes exactly 1 bit. A 40-character ASCII message is 320 bits, plus 8 EOM bits = 328 tokens of cover text. Doubling `n_partitions` to 4 halves the token count; quadrupling to 8 gives 3 bits per token. Capacity scales with `log2(n_partitions)` but naturalness degrades as the model has less freedom to choose high-probability tokens.
+With default settings (`top_k = 20`, `n_partitions = 2`), each generated token encodes exactly 1 bit. A 40-character ASCII message is 320 bits, plus 8 EOM bits = 328 tokens of cover text. Doubling `n_partitions` to 4 halves the token count; quadrupling to 8 gives 3 bits per token. Capacity scales with `log2(n_partitions)` but naturalness degrades as the model has less freedom to choose high-probability tokens.
 
 
 ## 4. Naturalness and detectability
 
-Cover text naturalness depends on how tightly the partition bins are balanced and how large the vocabulary restriction (`top_k`) is. With a well-balanced two-partition split and `top_k = 50`, each selected token is among the model's most probable continuations, so the text reads naturally.
+Cover text naturalness depends on how tightly the partition bins are balanced and how large the vocabulary restriction (`top_k`) is. With a well-balanced two-partition split and `top_k = 20`, each selected token is among the model's most probable continuations, so the text reads naturally.
 
-Statistical detectability is not formally analysed here, but the BPE filter and greedy intra-partition selection mean every chosen token is always in the model's top-k, which limits statistical deviation from the model's baseline distribution. An adversary with access to the same model could in principle detect the signal by checking token partition membership, but this requires knowing the model, prompt, and hyperparameters.
+Statistical detectability is not formally analyzed here, but the BPE filter and greedy intra-partition selection mean every chosen token is always in the model's top-k, which limits statistical deviation from the model's baseline distribution. An adversary with access to the same model could in principle detect the signal by checking token partition membership, but this requires knowing the model, prompt, and hyperparameters.
 
 
 ## 5. Scaling considerations
@@ -158,7 +151,7 @@ flowchart TD
 ```
 
 - The Gradio server runs in the main process. Each button click submits a `Job` to the shared `job_queue` and blocks on a per-job `result_queue`.
-- Worker processes each load the model once on startup and then loop, consuming jobs and writing results back to the per-job queue.
+- Worker processes each load the model once on startup and then loop, consuming jobs and writing results to a shared `response_queue`; a dispatcher thread in the main process routes each result to the correct per-job reply queue.
 - The `WorkerManager` background thread polls the queue depth every `SCALE_INTERVAL` seconds and spawns or removes workers to match load, subject to the `MAX_MEMORY` budget.
 - After loading, each worker reports its actual memory footprint so `WorkerManager` can refine the `max_workers` calculation.
 
@@ -176,7 +169,7 @@ The task-queue approach cleanly decouples the web frontend (stateless, cheap) fr
 
 ### 5.5 Model size vs. latency
 
-Larger models produce more natural-sounding text but are slower and more memory-hungry. The 1.5B Qwen2.5 model is a practical balance for a demo: it fits on a single GPU or in 6 GB of CPU RAM (float32), and token selection quality is visibly better than GPT-2. A 7B model in bfloat16 requires ~14 GB for weights alone, which fits on a 16 GB T4 with limited headroom, or comfortably on a 24 GB GPU (L4, A10G). Expect roughly 5x the per-token latency compared to a 1.5B model.
+Larger models produce more natural-sounding text but are slower and more memory-hungry. The default model is `Qwen/Qwen3-0.6B` (~1.5 GB VRAM in bfloat16, ~2.5 GB CPU RAM in float32), which balances quality and speed for a demo. The 1.5B Qwen2.5 model is a step up in quality and still fits on a modest GPU (~3 GB VRAM). A 7B model in bfloat16 requires ~14 GB for weights alone, which fits on a 16 GB T4 with limited headroom, or comfortably on a 24 GB GPU (L4, A10G). Expect roughly 5x the per-token latency of the 0.6B model.
 
 ### 5.6 Prompt sensitivity
 
