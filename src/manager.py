@@ -209,9 +209,11 @@ class WorkerManager(threading.Thread):
         demand = qsize + in_flight
 
         if demand > alive and alive < self._max_workers:
-            logger.debug('Scaling up: demand=%d (queued=%d in_flight=%d) alive=%d max=%d',
-                         demand, qsize, in_flight, alive, self._max_workers)
-            self._spawn_worker()
+            to_spawn = min(demand - alive, self._max_workers - alive)
+            logger.debug('Scaling up: demand=%d (queued=%d in_flight=%d) alive=%d max=%d spawning=%d',
+                         demand, qsize, in_flight, alive, self._max_workers, to_spawn)
+            for _ in range(to_spawn):
+                self._spawn_worker()
 
         elif demand == 0 and alive > self._min_workers:
             logger.debug('Scaling down: demand=0 alive=%d min=%d', alive, self._min_workers)
