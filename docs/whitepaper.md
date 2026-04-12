@@ -121,7 +121,48 @@ Because the model is held in memory and inference is sequential, a single worker
 
 For low traffic, a single worker with a request queue is sufficient. A Gradio demo with `concurrency_count=1` is the simplest correct configuration.
 
-### 5.3 Scaling out
+### 5.3 In-process worker pool
+
+The current implementation uses a worker pool within a single container. Each encode or decode request submitted through the Gradio UI is placed on a bounded `multiprocessing.Queue`; a pool of spawned worker processes (each owning its own model copy) drain the queue and write results back over per-job proxy queues.
+
+```mermaid
+flowchart TD
+    U([User browser]) -->|HTTP| G
+
+    subgraph Container
+        G["Gradio server\n(main process)"]
+        JQ[/"job_queue\n(bounded multiprocessing.Queue)"/]
+        WM["WorkerManager\n(background thread)"]
+
+        G -->|"put Job(kind, args, result_q)"| JQ
+        G -->|"result_q.get(timeout)"| G
+
+        WM -->|"monitors qsize()\nspawns / sends sentinel"| JQ
+
+        subgraph Workers["Worker processes  (1 … N)"]
+            W1["Worker 1\nmodel in memory"]
+            W2["Worker 2\nmodel in memory"]
+            WN["Worker N\nmodel in memory"]
+        end
+
+        JQ -->|get Job| W1
+        JQ -->|get Job| W2
+        JQ -->|get Job| WN
+
+        W1 -->|"result_q.put(result)"| G
+        W2 -->|"result_q.put(result)"| G
+        WN -->|"result_q.put(result)"| G
+
+        W1 -->|"footprint_mb"| WM
+    end
+```
+
+- The Gradio server runs in the main process. Each button click submits a `Job` to the shared `job_queue` and blocks on a per-job `result_queue`.
+- Worker processes each load the model once on startup and then loop, consuming jobs and writing results back to the per-job queue.
+- The `WorkerManager` background thread polls the queue depth every `SCALE_INTERVAL` seconds and spawns or removes workers to match load, subject to the `MAX_MEMORY` budget.
+- After loading, each worker reports its actual memory footprint so `WorkerManager` can refine the `max_workers` calculation.
+
+### 5.4 Scaling out
 
 To serve more concurrent users:
 
@@ -133,11 +174,11 @@ To serve more concurrent users:
 
 The task-queue approach cleanly decouples the web frontend (stateless, cheap) from the GPU workers (stateful, expensive). This is the microservices architecture described in [deployment.md](deployment.md).
 
-### 5.4 Model size vs. latency
+### 5.5 Model size vs. latency
 
 Larger models produce more natural-sounding text but are slower and more memory-hungry. The 1.5B Qwen2.5 model is a practical balance for a demo: it fits on a single GPU or in 6 GB of CPU RAM (float32), and token selection quality is visibly better than GPT-2. A 7B model in bfloat16 requires ~14 GB for weights alone, which fits on a 16 GB T4 with limited headroom, or comfortably on a 24 GB GPU (L4, A10G). Expect roughly 5x the per-token latency compared to a 1.5B model.
 
-### 5.5 Prompt sensitivity
+### 5.6 Prompt sensitivity
 
 Cover text quality and capacity are both sensitive to the prompt. A short, generic prompt gives the model broad stylistic freedom; a domain-specific prompt can produce more focused output but may reduce the effective vocabulary available for partitioning. The prompt is not part of the cover text and must be shared between encoder and decoder.
 
