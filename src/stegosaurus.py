@@ -327,7 +327,9 @@ def encode(
             chunk += [0] * (bits_per_token - len(chunk))  # pad last chunk
 
         # Convert the chunk of bits to an integer partition index
-        partition_idx = int(''.join(str(b) for b in chunk), 2)
+        partition_idx = 0
+        for b in chunk:
+            partition_idx = (partition_idx << 1) | b
 
         # Pick the highest-probability token in the selected partition
         chosen_id = partitions[partition_idx][0][0]
