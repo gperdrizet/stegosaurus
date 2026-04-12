@@ -34,7 +34,7 @@ def _measure_memory_mb(device) -> float:
     return 0.0
 
 
-def run(job_queue, memory_report_queue, response_queue):
+def run(job_queue, memory_report_queue, response_queue, threads_per_worker=None):
     '''Entry point executed in each worker process.
 
     Parameters
@@ -48,6 +48,10 @@ def run(job_queue, memory_report_queue, response_queue):
         Shared multiprocessing.Queue to which the worker writes
         (correlation_id, status, payload) tuples.  The main process
         routes each tuple back to the correct waiting thread.
+    threads_per_worker:
+        Optional multiprocessing.Value("i") updated by WorkerManager after
+        each scale event.  When set, torch.set_num_threads() is called before
+        every job so each worker gets an equal share of CPU cores.
     '''
 
     # Each worker process has its own copy of the module; the module-level
@@ -71,6 +75,13 @@ def run(job_queue, memory_report_queue, response_queue):
         if job is None:
             logger.info('Worker pid=%d received shutdown sentinel', os.getpid())
             break
+
+        if threads_per_worker is not None:
+            try:
+                import torch
+                torch.set_num_threads(max(1, threads_per_worker.value))
+            except Exception:
+                pass
 
         try:
             if job.kind == 'encode':

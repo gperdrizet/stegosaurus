@@ -116,6 +116,13 @@ class WorkerManager(threading.Thread):
         # Workers report their actual footprint here after loading
         self._memory_report_queue = ctx.Queue()
 
+        # Shared integer workers read before each job to call torch.set_num_threads().
+        # Manager updates this after every scale event so all workers get an equal
+        # slice of CPU cores without restarting.  0 means "don't manage threads".
+        self._cpu_count = self._available_cpu_count()
+        initial_threads = max(1, self._cpu_count // max(1, min_workers)) if self._cpu_count else 0
+        self._threads_per_worker = ctx.Value('i', initial_threads)
+
         # If max_workers was given explicitly, use it; otherwise estimate from memory
         if max_workers:
             self._max_workers = max(max_workers, min_workers)
@@ -170,6 +177,7 @@ class WorkerManager(threading.Thread):
         # Bring pool up to min_workers immediately
         for _ in range(self._min_workers):
             self._spawn_worker()
+        self._update_threads_per_worker(self._min_workers)
 
         while not self._stop_event.is_set():
             time.sleep(self._scale_interval)
@@ -183,7 +191,8 @@ class WorkerManager(threading.Thread):
     def _spawn_worker(self):
         p = self._ctx.Process(
             target=_worker_entry,
-            args=(self._job_queue, self._memory_report_queue, self._response_queue),
+            args=(self._job_queue, self._memory_report_queue, self._response_queue,
+                  self._threads_per_worker),
             daemon=True,
         )
         p.start()
@@ -245,6 +254,28 @@ class WorkerManager(threading.Thread):
         else:
             self._idle_ticks = 0
 
+        # Sync thread budget to current pool size after any scaling action.
+        # On scale-down the sentinel worker hasn't exited yet, so we pass the
+        # current alive count; the correction happens on the next cycle once
+        # _reap_dead_workers removes the exited process.
+        with self._lock:
+            self._update_threads_per_worker(len(self._workers))
+
+    def _update_threads_per_worker(self, alive: int):
+        '''Set threads_per_worker to cpu_count // alive, giving each worker an
+        equal share of cores.  A single worker gets all cores.  No-op on GPU
+        (cpu_count is 0 when CUDA is available) or when alive is 0.
+        '''
+        if not self._cpu_count or alive <= 0:
+            return
+        n = max(1, self._cpu_count // alive)
+        if n != self._threads_per_worker.value:
+            self._threads_per_worker.value = n
+            logger.info(
+                'threads_per_worker → %d (%d CPUs / %d workers)',
+                n, self._cpu_count, alive,
+            )
+
     def _drain_memory_reports(self):
         '''Consume any pending footprint reports and refine max_workers.'''
         while True:
@@ -275,6 +306,11 @@ class WorkerManager(threading.Thread):
         /proc/meminfo.  A 10% headroom is reserved in auto mode to avoid
         crowding out the OS and the Gradio process.  Falls back to 4 if
         neither the hardware query nor the config footprint can be read.
+
+        On CPU-only machines the memory budget is not the binding constraint:
+        each worker runs PyTorch inference that saturates all available threads.
+        The estimate is therefore also capped by the number of logical CPUs
+        accessible to the process so that workers do not thrash CPU cores.
         '''
         _HEADROOM = 0.90  # use at most 90% of available memory in auto mode
 
@@ -302,11 +338,52 @@ class WorkerManager(threading.Thread):
             model_name = os.environ.get('MODEL', 'Qwen/Qwen3-0.6B')
             memory_mb = all_configs.get(model_name, {}).get('memory_mb', 0)
             if memory_mb:
-                return max(1, int(budget_bytes / (memory_mb * 1024 ** 2)))
+                memory_max = max(1, int(budget_bytes / (memory_mb * 1024 ** 2)))
+            else:
+                memory_max = 4  # config entry missing footprint
+        except Exception:
+            memory_max = 4  # config unreadable fallback
+
+        # --- on CPU, also cap by available logical cores ---
+        cuda_available = False
+        try:
+            import torch
+            cuda_available = torch.cuda.is_available()
         except Exception:
             pass
 
-        return 4  # config unreadable fallback
+        if not cuda_available:
+            cpu_max = self._available_cpu_count()
+            if cpu_max and memory_max > cpu_max:
+                logger.info(
+                    'CPU-only: capping max_workers at %d (logical CPU count) '
+                    'instead of %d (memory budget)',
+                    cpu_max,
+                    memory_max,
+                )
+                return max(1, cpu_max)
+
+        return memory_max
+
+    @staticmethod
+    def _available_cpu_count() -> int:
+        '''Return the number of logical CPUs available to this process.
+
+        Uses os.sched_getaffinity when available (Linux, respects cgroup/
+        container CPU limits), otherwise falls back to os.cpu_count().
+        Returns 0 on GPU hosts (thread management is not needed there) or
+        if the count cannot be determined.
+        '''
+        try:
+            import torch
+            if torch.cuda.is_available():
+                return 0  # GPU: no need to manage CPU threads
+        except Exception:
+            pass
+        try:
+            return len(os.sched_getaffinity(0))
+        except AttributeError:
+            return os.cpu_count() or 0
 
     @staticmethod
     def _available_memory_bytes() -> int:
@@ -334,7 +411,7 @@ class WorkerManager(threading.Thread):
         return 0
 
 
-def _worker_entry(job_queue, memory_report_queue, response_queue):
+def _worker_entry(job_queue, memory_report_queue, response_queue, threads_per_worker=None):
     '''Module-level function so it can be pickled by the spawn start method.'''
     from worker import run
-    run(job_queue, memory_report_queue, response_queue)
+    run(job_queue, memory_report_queue, response_queue, threads_per_worker)
