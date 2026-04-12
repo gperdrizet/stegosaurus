@@ -3,6 +3,7 @@
 import atexit
 import multiprocessing
 import queue
+import threading
 import sys
 import os
 
@@ -21,9 +22,20 @@ _job_queue = None
 _ctx = None
 _mp_manager = None  # multiprocessing.Manager — produces picklable Queue proxies
 
+# Count of jobs submitted but not yet returned; used by WorkerManager to
+# detect demand even after jobs have been dequeued by a worker.
+_in_flight_count = 0
+_in_flight_lock = threading.Lock()
+
+
+def _get_in_flight() -> int:
+    with _in_flight_lock:
+        return _in_flight_count
+
 
 def _submit(kind: str, args: dict) -> tuple[str, str]:
     '''Put a job on the queue and block until the worker returns a result.'''
+    global _in_flight_count
     # Use a Manager queue (proxy object) so it can be pickled inside the Job
     # and sent through job_queue to the worker process.
     result_queue = _mp_manager.Queue()
@@ -32,10 +44,15 @@ def _submit(kind: str, args: dict) -> tuple[str, str]:
     except queue.Full:
         return '', 'Server is busy — please try again in a moment.'
 
+    with _in_flight_lock:
+        _in_flight_count += 1
     try:
         status, payload = result_queue.get(timeout=_JOB_TIMEOUT)
     except Exception:
         return '', 'Request timed out — the server may be overloaded.'
+    finally:
+        with _in_flight_lock:
+            _in_flight_count -= 1
 
     if status == 'error':
         return '', f'Error: {payload}'
@@ -165,12 +182,14 @@ if __name__ == '__main__':
         max_memory_bytes=parse_memory_limit(os.environ.get('MAX_MEMORY', '0')),
         min_workers=int(os.environ.get('MIN_WORKERS', 1)),
         scale_interval=float(os.environ.get('SCALE_INTERVAL', 2.0)),
+        get_in_flight=_get_in_flight,
     )
     _manager.start()
     atexit.register(_manager.shutdown)
 
     print('Launching Stegosaurus demo...')
 
+    demo.queue(default_concurrency_limit=int(os.environ.get('MAX_QUEUE_SIZE', 50)))
     demo.launch(
         server_name='0.0.0.0',
         server_port=int(os.environ.get('PORT', 8080)),

@@ -24,7 +24,7 @@ def parse_memory_limit(value: str) -> int:
 
     Accepts formats:
       "16GB"  "16 GB"  "16384MB"  "16384 MB"  "16384" (treated as MB)
-    Returns 0 if value is empty, "0", or unparseable (meaning no limit).
+    Returns 0 if value is empty, "0", or unparsable (meaning no limit).
     '''
     value = value.strip()
     if not value or value == '0':
@@ -69,6 +69,7 @@ class WorkerManager(threading.Thread):
         max_memory_bytes: int = 0,
         min_workers: int = 1,
         scale_interval: float = 2.0,
+        get_in_flight=None,
     ):
         super().__init__(name='WorkerManager', daemon=True)
 
@@ -77,6 +78,10 @@ class WorkerManager(threading.Thread):
         self._max_memory_bytes = max_memory_bytes
         self._min_workers = min_workers
         self._scale_interval = scale_interval
+        # Callable that returns the number of jobs currently being processed
+        # by workers (dequeued but not yet returned). Combined with qsize this
+        # gives total demand and prevents premature scale-down.
+        self._get_in_flight = get_in_flight or (lambda: 0)
 
         self._workers: list[multiprocessing.Process] = []
         self._lock = threading.Lock()
@@ -171,12 +176,16 @@ class WorkerManager(threading.Thread):
             # macOS doesn't support qsize(); treat as non-zero to be safe
             qsize = 1
 
-        if qsize > alive and alive < self._max_workers:
-            logger.debug('Scaling up: qsize=%d alive=%d max=%d', qsize, alive, self._max_workers)
+        in_flight = self._get_in_flight()
+        demand = qsize + in_flight
+
+        if demand > alive and alive < self._max_workers:
+            logger.debug('Scaling up: demand=%d (queued=%d in_flight=%d) alive=%d max=%d',
+                         demand, qsize, in_flight, alive, self._max_workers)
             self._spawn_worker()
 
-        elif qsize == 0 and alive > self._min_workers:
-            logger.debug('Scaling down: qsize=%d alive=%d min=%d', qsize, alive, self._min_workers)
+        elif demand == 0 and alive > self._min_workers:
+            logger.debug('Scaling down: demand=0 alive=%d min=%d', alive, self._min_workers)
             self._job_queue.put(None)  # one idle worker will pick this up and exit
 
     def _drain_memory_reports(self):
