@@ -76,7 +76,48 @@ HF_TOKEN=hf_your_token_here
 Generate a token at huggingface.co → Settings → Access Tokens (Read scope is sufficient). The `.env` file is gitignored and never committed. On GitHub Codespaces, set `HF_TOKEN` as a Codespaces secret instead.
 
 
-## 3. Configuration
+## 3. Architecture
+
+```mermaid
+flowchart TD
+    U([User browser]) -->|HTTP| G
+
+    subgraph Container
+        G["Gradio server\n(main process)"]
+        JQ[/"job_queue\n(bounded multiprocessing.Queue)"/]
+        WM["WorkerManager\n(background thread)"]
+
+        G -->|"put Job(kind, args, result_q)"| JQ
+        G -->|"result_q.get(timeout)"| G
+
+        WM -->|"monitors qsize()\nspawns / sends sentinel"| JQ
+
+        subgraph Workers["Worker processes  (1 … N)"]
+            W1["Worker 1\nmodel in memory"]
+            W2["Worker 2\nmodel in memory"]
+            WN["Worker N\nmodel in memory"]
+        end
+
+        JQ -->|get Job| W1
+        JQ -->|get Job| W2
+        JQ -->|get Job| WN
+
+        W1 -->|"result_q.put(result)"| G
+        W2 -->|"result_q.put(result)"| G
+        WN -->|"result_q.put(result)"| G
+
+        W1 -->|"footprint_mb"| WM
+    end
+```
+
+**How it works:**
+- The Gradio server runs in the main process. Each button click submits a `Job` to the shared `job_queue` and blocks on a per-job `result_queue`.
+- Worker processes each load the model once on startup and then loop, consuming jobs and writing results back to the per-job queue.
+- The `WorkerManager` background thread polls the queue depth every `SCALE_INTERVAL` seconds and spawns or removes workers to match load, subject to the `MAX_MEMORY` budget.
+- After loading, each worker reports its actual memory footprint so `WorkerManager` can refine the `max_workers` calculation.
+
+
+## 4. Configuration
 
 Model and Gradio port are set via environment variables.
 
