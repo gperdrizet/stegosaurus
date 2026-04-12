@@ -54,7 +54,7 @@ def _encode_one(client: Client, message: str, prompt: str) -> dict:
         result = client.predict(
             prompt,
             message,
-            api_name='/encode_message',
+            api_name='/encode',
         )
         elapsed = time.perf_counter() - t0
         cover_text, status = result
@@ -72,7 +72,7 @@ def _decode_one(client: Client, cover_text: str, prompt: str) -> dict:
         result = client.predict(
             prompt,
             cover_text,
-            api_name='/decode_message',
+            api_name='/decode',
         )
         elapsed = time.perf_counter() - t0
         message, status = result

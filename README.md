@@ -83,16 +83,42 @@ The app uses a queue-based worker pool. The Gradio server enqueues jobs onto a s
 
 ## 4. Load testing
 
-`notebooks/03-scaling_experiment.ipynb` measures how the worker pool behaves under load. Three experiments are included:
+`tests/load_test.py` submits concurrent encode and decode requests against a running instance and reports per-kind latency (min, median, p95, max), success rate, and overall throughput.
 
-1. **Baseline** (`MIN_WORKERS=1 MAX_WORKERS=1`) — fires `BASELINE_REQUESTS_PER_LEVEL` requests at each concurrency level in `BASELINE_CONCURRENCY_LEVELS` and plots median / p95 latency vs concurrency.
-2. **Worker sweep** — holds concurrency fixed at `SWEEP_CONCURRENCY` and varies `MAX_WORKERS`; plots latency and throughput side-by-side for each pool size.
-3. **Dynamic scaling trace** — starts with `MIN_WORKERS=1 MAX_WORKERS=4`, fires a burst of `BURST_REQUESTS` requests, and plots worker count over time while the pool auto-scales up and then quiesces back to `MIN_WORKERS`.
+```bash
+# Against a local instance (defaults: 10 requests, 4 workers)
+python tests/load_test.py
 
-The notebook requires a running Stegosaurus instance. Set `APP_URL` in the configuration cell (default `http://localhost:8080`) before running.
+# More load against a remote instance
+python tests/load_test.py --url https://<your-service>.run.app --requests 50 --workers 8
+```
+
+**Options:**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--url` | `http://localhost:8080` | Base URL of the running app |
+| `--requests` | `10` | Total number of requests to submit |
+| `--workers` | `4` | Concurrent client threads |
+| `--prompt` | _(model default)_ | Prompt used for all requests |
+
+By default the test runs encode-only. To include decode jobs, populate `_DECODE_COVER_TEXTS` in the script with pre-encoded cover texts (run encode once and paste the outputs in).
+
+Exits with code `0` if all requests succeed, `1` if any fail.
 
 
-## 5. Configuration
+## 5. Notebooks
+
+| Notebook | Description |
+|---|---|
+| `notebooks/01-next_token_probabilities.ipynb` | Visualises the model's next-token probability distribution for a given prompt; useful for understanding vocabulary coverage and partition balance. |
+| `notebooks/02-text_encoding.ipynb` | Walks through a single encode/decode round-trip step-by-step, showing bit assignment, partition selection, and BPE safety filtering. |
+| `notebooks/03-scaling_experiment.ipynb` | Three experiments measuring worker pool behaviour under load: baseline latency vs concurrency, latency/throughput vs pool size, and a live auto-scaling trace during a traffic burst. |
+
+Shared utilities used by notebook 3 are in `notebooks/helpers.py`.
+
+
+## 6. Configuration
 
 Model and Gradio port are set via environment variables.
 
@@ -119,9 +145,9 @@ Supported models:
 
 Per-model tokenizer settings are in `src/model_config.json`.
 
-## 6. Deployment
+## 7. Deployment
 
-### 6.1. Docker
+### 7.1. Docker
 
 The app is published as a single image which runs on CPU or GPU. The image includes the CUDA 12.6 PyTorch wheel for wide GPU support (Pascal sm_60 and newer). If a GPU is not available, the model falls back to CPU inference automatically at runtime. The `qwen3-0.6B` (default) model is included in the image for running in offline environments. Hugging Face telemetry & model update checks are disabled via environment variables.
 
@@ -145,7 +171,7 @@ make release  # build + push in one step
 
 Requires a `DOCKERHUB_TOKEN` in `.env`. Each build produces two tags: `gperdrizet/stegosaurus:v1.0.0` and `gperdrizet/stegosaurus:latest`. Builds on untagged commits use `dev` (e.g. `gperdrizet/stegosaurus:dev`).
 
-### 6.2. Hugging Face Spaces
+### 7.2. Hugging Face Spaces
 
 Hugging Face Space deployment uses a force push to the repo specified by `HF_SPACE_REPO` in `.env`. Requires `HF_TOKEN` with write access in `.env`.
 
@@ -157,7 +183,7 @@ See [Deploying Stegosaurus to Hugging Face Spaces](https://github.com/gperdrizet
 
 Requires an `HF_TOKEN` in `.env` (generate at huggingface.co → Settings → Access tokens, with Write scope).
 
-### 6.3. Google Cloud Run
+### 7.3. Google Cloud Run
 
 The Docker image build is configured for deployment to Google Cloud Run via and an artifact registry. To push a new image build:
 
