@@ -67,6 +67,10 @@ class WorkerManager(threading.Thread):
         Minimum number of always-running workers.
     scale_interval:
         Seconds between scaling checks.
+    scale_down_delay:
+        Number of consecutive idle intervals that must pass before a worker
+        is removed. Prevents thrashing when bursts arrive close together.
+        Defaults to 5.
     get_in_flight:
         Optional callable returning the number of jobs currently being
         processed by workers (dequeued but not yet returned). Combined with
@@ -82,6 +86,7 @@ class WorkerManager(threading.Thread):
         max_memory_bytes: int = 0,
         min_workers: int = 1,
         scale_interval: float = 2.0,
+        scale_down_delay: int = 5,
         get_in_flight=None,
     ):
         super().__init__(name='WorkerManager', daemon=True)
@@ -95,6 +100,8 @@ class WorkerManager(threading.Thread):
         # by workers (dequeued but not yet returned). Combined with qsize this
         # gives total demand and prevents premature scale-down.
         self._get_in_flight = get_in_flight or (lambda: 0)
+        self._scale_down_delay = scale_down_delay
+        self._idle_ticks = 0  # consecutive idle intervals; triggers scale-down
 
         self._workers: list[multiprocessing.Process] = []
         self._lock = threading.Lock()
@@ -211,6 +218,7 @@ class WorkerManager(threading.Thread):
         demand = qsize + in_flight
 
         if demand > alive and alive < self._max_workers:
+            self._idle_ticks = 0
             to_spawn = min(demand - alive, self._max_workers - alive)
             logger.debug('Scaling up: demand=%d (queued=%d in_flight=%d) alive=%d max=%d spawning=%d',
                          demand, qsize, in_flight, alive, self._max_workers, to_spawn)
@@ -218,9 +226,19 @@ class WorkerManager(threading.Thread):
                 self._spawn_worker()
 
         elif demand == 0 and alive > self._min_workers:
-            logger.debug('Scaling down: demand=0 alive=%d min=%d', alive, self._min_workers)
-            self._pending_exits += 1
-            self._job_queue.put(None)  # one idle worker will pick this up and exit
+            self._idle_ticks += 1
+            if self._idle_ticks >= self._scale_down_delay:
+                self._idle_ticks = 0
+                logger.debug('Scaling down: demand=0 alive=%d min=%d (idle for %d ticks)',
+                             alive, self._min_workers, self._scale_down_delay)
+                self._pending_exits += 1
+                self._job_queue.put(None)  # one idle worker will pick this up and exit
+            else:
+                logger.debug('Scale-down deferred: idle_ticks=%d/%d alive=%d',
+                             self._idle_ticks, self._scale_down_delay, alive)
+
+        else:
+            self._idle_ticks = 0
 
     def _drain_memory_reports(self):
         '''Consume any pending footprint reports and refine max_workers.'''
