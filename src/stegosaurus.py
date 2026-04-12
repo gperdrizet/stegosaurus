@@ -1,6 +1,7 @@
 '''Main module to encode and decode messages using the Stegosaurus algorithm.'''
 
 import argparse
+import functools
 import json
 import logging
 import os
@@ -100,6 +101,10 @@ def _load_model():
         # Put model in evaluation mode (disables dropout, etc.)
         _model.eval()
 
+        # Clear the BPE-safety cache so stale results from a previous model
+        # are not carried over if _load_model is ever called again.
+        _is_bpe_safe.cache_clear()
+
         logger.info('Loaded model "%s"', MODEL_NAME)
 
     return _tokenizer, _model, _device
@@ -158,7 +163,8 @@ def _decode_bits(bits: list[int]) -> str:
 # Partition function
 # ---------------------------------------------------------------------------
 
-def _is_bpe_safe(prev_token_id: int | None, new_token_id: int, tokenizer) -> bool:
+@functools.lru_cache(maxsize=4096)
+def _is_bpe_safe(prev_token_id: int | None, new_token_id: int) -> bool:
     '''
     Return True if appending new_token_id after prev_token_id produces a
     text that re-tokenizes back to exactly [prev_token_id, new_token_id].
@@ -166,18 +172,22 @@ def _is_bpe_safe(prev_token_id: int | None, new_token_id: int, tokenizer) -> boo
     GPT-2 uses byte-level BPE, so adjacent tokens can merge when decoded
     to a string and re-encoded.  Filtering unsafe tokens from the candidate
     set ensures the cover-text token sequence is always recoverable.
+
+    Results are memoized: the same token pair always gives the same answer,
+    so repeated checks across generation steps hit the cache instead of
+    calling the tokenizer again.
     '''
 
     if prev_token_id is None:
         return True
 
-    pair_text = tokenizer.decode([prev_token_id, new_token_id])
+    pair_text = _tokenizer.decode([prev_token_id, new_token_id])
 
     # add_special_tokens=False prevents the tokenizer from prepending a BOS
     # token, which would make the re-encoded list longer than the pair.
     # Whether this matters is model-specific (see model_config.json).
     ats = _MODEL_CONFIG['bpe_check_add_special_tokens']
-    return tokenizer.encode(pair_text, add_special_tokens=ats) == [prev_token_id, new_token_id]
+    return _tokenizer.encode(pair_text, add_special_tokens=ats) == [prev_token_id, new_token_id]
 
 
 def _partition_top_k(probs, indices, top_k, n_partitions, prev_token_id, tokenizer):
@@ -212,7 +222,7 @@ def _partition_top_k(probs, indices, top_k, n_partitions, prev_token_id, tokeniz
             continue
 
         # Skip tokens that would merge with the previous token under BPE re-encoding
-        if not _is_bpe_safe(prev_token_id, token_id, tokenizer):
+        if not _is_bpe_safe(prev_token_id, token_id):
             continue
 
         # Assign to the partition with the lowest current mass
