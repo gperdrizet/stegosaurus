@@ -13,7 +13,11 @@
 		"HF_HOME": "${containerWorkspaceFolder}/models", // Download from HF to models/ directory
 		"HF_HUB_DISABLE_PROGRESS_BARS": "1",             // Disable HF progress bars
 		"MODEL": "Qwen/Qwen3-0.6B",                       // Model to use for encoding/decoding
-		"PORT": "8080"                                   // Port for the Gradio demo web app
+		"PORT": "8080",                                  // Port for the Gradio demo web app
+		"MIN_WORKERS": "1",                              // Minimum always-warm encode/decode workers
+		"MAX_MEMORY": "0",                               // VRAM budget for worker pool (0 = auto)
+		"SCALE_INTERVAL": "2",                           // Seconds between worker pool scaling checks
+		"MAX_QUEUE_SIZE": "50"                           // Max queued jobs before rejecting requests
 	},
 	"forwardPorts": [8080],                              // Forward port 8080 for the Gradio demo web app
 	"portsAttributes": {

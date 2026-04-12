@@ -3,30 +3,35 @@
         "default_prompt": "A turtle and a bird were walking in the forest one day. The turtle said, \"",
         "bpe_check_add_special_tokens": false,
         "cover_add_special_tokens": false,
-        "trust_remote_code": false
+        "trust_remote_code": false,
+        "memory_mb": 2500
     },
     "Qwen/Qwen2.5-1.5B": {
         "default_prompt": "A turtle and a bird were walking in the forest one day. The turtle said, \"",
         "bpe_check_add_special_tokens": false,
         "cover_add_special_tokens": false,
-        "trust_remote_code": false
+        "trust_remote_code": false,
+        "memory_mb": 3000
     },
     "Qwen/Qwen2.5-3B": {
         "default_prompt": "A turtle and a bird were walking in the forest one day. The turtle said, \"",
         "bpe_check_add_special_tokens": false,
         "cover_add_special_tokens": false,
-        "trust_remote_code": false
+        "trust_remote_code": false,
+        "memory_mb": 6000
     },
     "Qwen/Qwen3-0.6B": {
         "default_prompt": "A turtle and a bird were walking in the forest one day. The turtle said, \"",
         "bpe_check_add_special_tokens": false,
         "cover_add_special_tokens": false,
-        "trust_remote_code": false
+        "trust_remote_code": false,
+        "memory_mb": 1500
     },
     "meta-llama/Llama-3.2-3B": {
         "default_prompt": "A turtle and a bird were walking in the forest one day. The turtle said, \"",
         "bpe_check_add_special_tokens": false,
         "cover_add_special_tokens": false,
-        "trust_remote_code": false
+        "trust_remote_code": false,
+        "memory_mb": 6000
     }
 }

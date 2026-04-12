@@ -87,6 +87,11 @@ Model and Gradio port are set via environment variables.
 | `TOP_K` | `20` | Number of top tokens to consider at each generation step |
 | `N_PARTITIONS` | `2` | Partitions per token; must be a power of 2 (bits per token = log₂) |
 | `ROOT_PATH` | _(empty)_ | Set to the public service URL when running behind a reverse proxy (e.g. Cloud Run) |
+| `MIN_WORKERS` | `1` | Minimum always-warm encode/decode worker processes |
+| `MAX_MEMORY` | `0` (auto) | VRAM (GPU) or RAM (CPU) budget for the worker pool. `0` detects available memory automatically and reserves 10% headroom. Accepts `"12GB"`, `"12000MB"`, or bare MB number |
+| `SCALE_INTERVAL` | `2` | Seconds between worker pool scaling checks |
+| `MAX_QUEUE_SIZE` | `50` | Max pending jobs before requests are rejected with "Server busy" |
+| `JOB_TIMEOUT` | `300` | Seconds a Gradio handler waits for a worker result before returning a timeout error |
 | `LOG_LEVEL` | `INFO` | Logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
 
 Supported models:
