@@ -19,11 +19,14 @@ _JOB_TIMEOUT = int(os.environ.get('JOB_TIMEOUT', 300))  # seconds
 # These are set up in __main__ before the Gradio server starts
 _job_queue = None
 _ctx = None
+_mp_manager = None  # multiprocessing.Manager — produces picklable Queue proxies
 
 
 def _submit(kind: str, args: dict) -> tuple[str, str]:
     '''Put a job on the queue and block until the worker returns a result.'''
-    result_queue = _ctx.Queue()
+    # Use a Manager queue (proxy object) so it can be pickled inside the Job
+    # and sent through job_queue to the worker process.
+    result_queue = _mp_manager.Queue()
     try:
         _job_queue.put_nowait(Job(kind=kind, args=args, result_queue=result_queue))
     except queue.Full:
@@ -148,6 +151,10 @@ if __name__ == '__main__':
     # 'spawn' is required for CUDA; 'fork' causes deadlocks with GPU contexts.
     multiprocessing.set_start_method('spawn', force=True)
     _ctx = multiprocessing.get_context('spawn')
+
+    # Manager server process: provides Queue proxies that can be pickled and
+    # sent through other queues (unlike bare multiprocessing.Queue objects).
+    _mp_manager = _ctx.Manager()
 
     _max_queue_size = int(os.environ.get('MAX_QUEUE_SIZE', 50))
     _job_queue = _ctx.Queue(maxsize=_max_queue_size)
