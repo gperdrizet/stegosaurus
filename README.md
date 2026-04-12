@@ -78,43 +78,7 @@ Generate a token at huggingface.co → Settings → Access Tokens (Read scope is
 
 ## 3. Architecture
 
-```mermaid
-flowchart TD
-    U([User browser]) -->|HTTP| G
-
-    subgraph Container
-        G["Gradio server\n(main process)"]
-        JQ[/"job_queue\n(bounded multiprocessing.Queue)"/]
-        WM["WorkerManager\n(background thread)"]
-
-        G -->|"put Job(kind, args, result_q)"| JQ
-        G -->|"result_q.get(timeout)"| G
-
-        WM -->|"monitors qsize()\nspawns / sends sentinel"| JQ
-
-        subgraph Workers["Worker processes  (1 … N)"]
-            W1["Worker 1\nmodel in memory"]
-            W2["Worker 2\nmodel in memory"]
-            WN["Worker N\nmodel in memory"]
-        end
-
-        JQ -->|get Job| W1
-        JQ -->|get Job| W2
-        JQ -->|get Job| WN
-
-        W1 -->|"result_q.put(result)"| G
-        W2 -->|"result_q.put(result)"| G
-        WN -->|"result_q.put(result)"| G
-
-        W1 -->|"footprint_mb"| WM
-    end
-```
-
-**How it works:**
-- The Gradio server runs in the main process. Each button click submits a `Job` to the shared `job_queue` and blocks on a per-job `result_queue`.
-- Worker processes each load the model once on startup and then loop, consuming jobs and writing results back to the per-job queue.
-- The `WorkerManager` background thread polls the queue depth every `SCALE_INTERVAL` seconds and spawns or removes workers to match load, subject to the `MAX_MEMORY` budget.
-- After loading, each worker reports its actual memory footprint so `WorkerManager` can refine the `max_workers` calculation.
+The app uses a queue-based worker pool. The Gradio server enqueues jobs onto a shared `job_queue`; a pool of worker processes (each holding the model in memory) consume and process them. A background `WorkerManager` thread auto-scales the pool based on queue depth and available memory. See the [technical whitepaper](https://github.com/gperdrizet/stegosaurus/blob/main/docs/whitepaper.md#53-in-process-worker-pool) for the full architecture diagram and implementation details.
 
 
 ## 4. Configuration
