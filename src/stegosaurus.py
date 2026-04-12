@@ -5,7 +5,6 @@ import json
 import logging
 import os
 from logging.handlers import RotatingFileHandler
-
 import torch
 import torch.nn.functional as F
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -52,6 +51,7 @@ _stream_handler.setFormatter(_formatter)
 
 _file_handler = RotatingFileHandler(
     os.path.join(_LOG_DIR, 'stegosaurus.log'),
+    mode='w',        # truncate on each startup
     maxBytes=1_000_000,  # 1 MB per file
     backupCount=3,
 )
