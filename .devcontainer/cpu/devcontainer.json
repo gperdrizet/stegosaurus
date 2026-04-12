@@ -20,7 +20,9 @@
 		"MIN_WORKERS": "1",                              // Minimum always-warm encode/decode workers
 		"MAX_MEMORY": "0",                               // RAM budget for worker pool (0 = auto)
 		"SCALE_INTERVAL": "2",                           // Seconds between worker pool scaling checks
-		"MAX_QUEUE_SIZE": "50"                           // Max queued jobs before rejecting requests
+		"MAX_QUEUE_SIZE": "50",                           // Max queued jobs before rejecting requests
+		"OMP_NUM_THREADS": "1",                           // Limit OpenMP threads to 1
+		"MKL_NUM_THREADS": "1"                            // Limit MKL threads to 1
 	},
 	"forwardPorts": [8080],                              // Forward port 8080 for the Gradio demo web app
 	"portsAttributes": {
