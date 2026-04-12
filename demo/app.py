@@ -1,6 +1,7 @@
 '''Gradio web interface for Stegosaurus encode/decode.'''
 
 import atexit
+import itertools
 import multiprocessing
 import queue
 import threading
@@ -19,8 +20,12 @@ _JOB_TIMEOUT = int(os.environ.get('JOB_TIMEOUT', 300))  # seconds
 
 # These are set up in __main__ before the Gradio server starts
 _job_queue = None
-_ctx = None
-_mp_manager = None  # multiprocessing.Manager — produces picklable Queue proxies
+_response_queue = None  # workers write (corr_id, status, payload) here
+
+# Pending requests: correlation_id -> queue.Queue that the waiting thread blocks on
+_pending: dict[int, queue.Queue] = {}
+_pending_lock = threading.Lock()
+_corr_id_counter = itertools.count()
 
 # Count of jobs submitted but not yet returned; used by WorkerManager to
 # detect demand even after jobs have been dequeued by a worker.
@@ -33,26 +38,43 @@ def _get_in_flight() -> int:
         return _in_flight_count
 
 
+def _dispatcher():
+    '''Background thread: forwards worker responses to the correct waiting thread.'''
+    while True:
+        corr_id, status, payload = _response_queue.get()
+        with _pending_lock:
+            reply_queue = _pending.pop(corr_id, None)
+        if reply_queue is not None:
+            reply_queue.put((status, payload))
+        # If reply_queue is None the request already timed out; discard silently.
+
+
 def _submit(kind: str, args: dict) -> tuple[str, str]:
     '''Put a job on the queue and block until the worker returns a result.'''
     global _in_flight_count
-    # Use a Manager queue (proxy object) so it can be pickled inside the Job
-    # and sent through job_queue to the worker process.
-    result_queue = _mp_manager.Queue()
+    corr_id = next(_corr_id_counter)
+    reply_queue: queue.Queue = queue.Queue(maxsize=1)
+    with _pending_lock:
+        _pending[corr_id] = reply_queue
+
     try:
-        _job_queue.put_nowait(Job(kind=kind, args=args, result_queue=result_queue))
+        _job_queue.put_nowait(Job(kind=kind, args=args, correlation_id=corr_id))
     except queue.Full:
+        with _pending_lock:
+            _pending.pop(corr_id, None)
         return '', 'Server is busy — please try again in a moment.'
 
     with _in_flight_lock:
         _in_flight_count += 1
     try:
-        status, payload = result_queue.get(timeout=_JOB_TIMEOUT)
-    except Exception:
+        status, payload = reply_queue.get(timeout=_JOB_TIMEOUT)
+    except queue.Empty:
         return '', 'Request timed out — the server may be overloaded.'
     finally:
         with _in_flight_lock:
             _in_flight_count -= 1
+        with _pending_lock:
+            _pending.pop(corr_id, None)
 
     if status == 'error':
         return '', f'Error: {payload}'
@@ -171,16 +193,18 @@ if __name__ == '__main__':
     multiprocessing.set_start_method('spawn', force=True)
     _ctx = multiprocessing.get_context('spawn')
 
-    # Manager server process: provides Queue proxies that can be pickled and
-    # sent through other queues (unlike bare multiprocessing.Queue objects).
-    _mp_manager = _ctx.Manager()
-
     _max_queue_size = int(os.environ.get('MAX_QUEUE_SIZE', 50))
     _job_queue = _ctx.Queue(maxsize=_max_queue_size)
+    _response_queue = _ctx.Queue()
+
+    # Dispatcher routes worker responses to the correct waiting Gradio thread.
+    _dispatcher_thread = threading.Thread(target=_dispatcher, name='Dispatcher', daemon=True)
+    _dispatcher_thread.start()
 
     _manager = WorkerManager(
         ctx=_ctx,
         job_queue=_job_queue,
+        response_queue=_response_queue,
         max_workers=int(os.environ.get('MAX_WORKERS', 0)),
         max_memory_bytes=parse_memory_limit(os.environ.get('MAX_MEMORY', '0')),
         min_workers=int(os.environ.get('MIN_WORKERS', 1)),

@@ -34,7 +34,7 @@ def _measure_memory_mb(device) -> float:
     return 0.0
 
 
-def run(job_queue, memory_report_queue):
+def run(job_queue, memory_report_queue, response_queue):
     '''Entry point executed in each worker process.
 
     Parameters
@@ -44,6 +44,10 @@ def run(job_queue, memory_report_queue):
     memory_report_queue:
         Queue used to send the measured model footprint (float MB) back to
         the WorkerManager after the model has been loaded.
+    response_queue:
+        Shared multiprocessing.Queue to which the worker writes
+        (correlation_id, status, payload) tuples.  The main process
+        routes each tuple back to the correct waiting thread.
     '''
 
     # Each worker process has its own copy of the module; the module-level
@@ -76,10 +80,10 @@ def run(job_queue, memory_report_queue):
             else:
                 raise ValueError(f'Unknown job kind: {job.kind!r}')
 
-            job.result_queue.put(('ok', result))
+            response_queue.put((job.correlation_id, 'ok', result))
 
         except Exception as exc:  # noqa: BLE001
             logger.exception('Worker pid=%d job failed', os.getpid())
-            job.result_queue.put(('error', str(exc)))
+            response_queue.put((job.correlation_id, 'error', str(exc)))
 
     logger.info('Worker pid=%d exiting', os.getpid())

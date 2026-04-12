@@ -56,6 +56,9 @@ class WorkerManager(threading.Thread):
         multiprocessing context (must be 'spawn').
     job_queue:
         Shared queue from which worker processes consume Job objects.
+    response_queue:
+        Shared queue to which worker processes write
+        (correlation_id, status, payload) tuples.
     max_workers:
         Hard cap on the number of worker processes. 0 (default) means
         auto-calculate from the memory budget.
@@ -82,6 +85,7 @@ class WorkerManager(threading.Thread):
         self,
         ctx,
         job_queue,
+        response_queue,
         max_workers: int = 0,
         max_memory_bytes: int = 0,
         min_workers: int = 1,
@@ -93,6 +97,7 @@ class WorkerManager(threading.Thread):
 
         self._ctx = ctx
         self._job_queue = job_queue
+        self._response_queue = response_queue
         self._max_memory_bytes = max_memory_bytes
         self._min_workers = min_workers
         self._scale_interval = scale_interval
@@ -178,7 +183,7 @@ class WorkerManager(threading.Thread):
     def _spawn_worker(self):
         p = self._ctx.Process(
             target=_worker_entry,
-            args=(self._job_queue, self._memory_report_queue),
+            args=(self._job_queue, self._memory_report_queue, self._response_queue),
             daemon=True,
         )
         p.start()
@@ -329,7 +334,7 @@ class WorkerManager(threading.Thread):
         return 0
 
 
-def _worker_entry(job_queue, memory_report_queue):
+def _worker_entry(job_queue, memory_report_queue, response_queue):
     '''Module-level function so it can be pickled by the spawn start method.'''
     from worker import run
-    run(job_queue, memory_report_queue)
+    run(job_queue, memory_report_queue, response_queue)
