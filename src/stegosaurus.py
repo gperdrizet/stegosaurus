@@ -272,6 +272,12 @@ def encode(
 
     A fixed 8-bit EOM marker (0xFF) is appended after the message bits.
     0xFF is never a valid UTF-8 byte, so it is unambiguous as a sentinel.
+
+    After all message bits have been encoded, generation continues greedily
+    (using the highest-probability non-special token at each step) until the
+    cover text ends with a sentence-terminal character (`.`, `!`, or `?`),
+    capped at 200 extra tokens.  This prevents the cover text from cutting
+    off mid-sentence without affecting the hidden payload.
     '''
 
     # Load model and tokenizer (cached across calls)

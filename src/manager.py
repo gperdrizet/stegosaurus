@@ -1,12 +1,14 @@
 '''WorkerManager: spawns and scales Stegosaurus encoder/decoder worker processes.
 
 The manager runs as a background thread in the Gradio process.  It monitors
-the shared job_queue depth and adjusts the worker pool size between
-min_workers and max_workers.
+total demand (queued jobs + in-flight jobs) and adjusts the worker pool size
+between min_workers and max_workers.
 
-max_workers is derived from MAX_MEMORY (env var) divided by the per-worker
-model footprint.  The footprint is first estimated from model_config.json, then
-refined once the first worker reports its actual measured footprint.
+max_workers is derived from available VRAM (GPU) or RAM (CPU), reserving 10%
+headroom, divided by the per-worker model footprint from model_config.json.
+The footprint estimate is refined once the first worker reports its actual
+measured footprint after loading.  A hard override is available via the
+MAX_MEMORY environment variable.
 '''
 
 import json
@@ -55,11 +57,17 @@ class WorkerManager(threading.Thread):
     job_queue:
         Shared queue from which worker processes consume Job objects.
     max_memory_bytes:
-        Hard memory budget (bytes). 0 means use model_config estimate × 4.
+        Hard memory budget in bytes. 0 (default) means auto-detect: queries
+        available VRAM (GPU) or RAM (CPU) and reserves 10% headroom.
     min_workers:
         Minimum number of always-running workers.
     scale_interval:
         Seconds between scaling checks.
+    get_in_flight:
+        Optional callable returning the number of jobs currently being
+        processed by workers (dequeued but not yet returned). Combined with
+        qsize() this gives total demand and prevents premature scale-down.
+        Defaults to a function that always returns 0.
     '''
 
     def __init__(
@@ -86,6 +94,7 @@ class WorkerManager(threading.Thread):
         self._workers: list[multiprocessing.Process] = []
         self._lock = threading.Lock()
         self._stop_event = threading.Event()
+        self._pending_exits = 0  # sentinels sent but worker not yet reaped
 
         # Workers report their actual footprint here after loading
         self._memory_report_queue = ctx.Queue()
@@ -162,7 +171,12 @@ class WorkerManager(threading.Thread):
             self._workers = alive
 
         if dead_count:
-            logger.warning('%d worker(s) died unexpectedly', dead_count)
+            unexpected = max(0, dead_count - self._pending_exits)
+            self._pending_exits = max(0, self._pending_exits - dead_count)
+            if unexpected:
+                logger.warning('%d worker(s) died unexpectedly', unexpected)
+            else:
+                logger.debug('%d worker(s) exited after scale-down sentinel', dead_count)
 
     def _scale(self):
         self._reap_dead_workers()
@@ -186,6 +200,7 @@ class WorkerManager(threading.Thread):
 
         elif demand == 0 and alive > self._min_workers:
             logger.debug('Scaling down: demand=0 alive=%d min=%d', alive, self._min_workers)
+            self._pending_exits += 1
             self._job_queue.put(None)  # one idle worker will pick this up and exit
 
     def _drain_memory_reports(self):
