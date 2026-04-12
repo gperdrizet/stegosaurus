@@ -189,7 +189,9 @@ class WorkerManager(threading.Thread):
             unexpected = max(0, dead_count - self._pending_exits)
             self._pending_exits = max(0, self._pending_exits - dead_count)
             if unexpected:
-                logger.warning('%d worker(s) died unexpectedly', unexpected)
+                logger.warning('%d worker(s) died unexpectedly; respawning', unexpected)
+                for _ in range(unexpected):
+                    self._spawn_worker()
             else:
                 logger.debug('%d worker(s) exited after scale-down sentinel', dead_count)
 
