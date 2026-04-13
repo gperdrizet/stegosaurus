@@ -157,23 +157,13 @@ flowchart TD
 
 ### 5.4 CPU-only worker scaling
 
-On a CPU-only host, RAM is rarely the binding constraint — even a modest server can hold
-several model replicas in system memory — but PyTorch uses all available cores for each
-forward pass by default. If `max_workers` is derived from the memory budget alone, the
-pool spawns far more workers than there are cores and they thrash, increasing median
-latency dramatically (2+ minutes observed in testing against the Qwen3-0.6B model).
+On a CPU-only host, RAM is rarely the binding constraint — even a modest server can hold several model replicas in system memory — but PyTorch uses all available cores for each forward pass by default. If `max_workers` is derived from the memory budget alone, the pool spawns far more workers than there are cores and they thrash, increasing median latency dramatically (2+ minutes observed in testing against the Qwen3-0.6B model).
 
 The `WorkerManager` applies two corrections when no CUDA device is detected:
 
-1. **Core-count cap.** `max_workers` is additionally bounded by `os.sched_getaffinity(0)`
-   (or `os.cpu_count()` on non-Linux hosts). This respects container and cgroup CPU
-   quotas, ensuring the number of workers never exceeds the number of cores available
-   to the process.
+1. **Core-count cap.** `max_workers` is additionally bounded by `os.sched_getaffinity(0)` (or `os.cpu_count()` on non-Linux hosts). This respects container and cgroup CPU quotas, ensuring the number of workers never exceeds the number of cores available to the process.
 
-2. **Dynamic thread budget.** A shared `multiprocessing.Value('i', n)` called
-   `threads_per_worker` is maintained by the manager and read by every worker at the
-   start of each job to call `torch.set_num_threads(n)`. After every scale event the
-   manager writes `cpu_count // alive_workers` into this value. The result:
+2. **Dynamic thread budget.** A shared `multiprocessing.Value('i', n)` called `threads_per_worker` is maintained by the manager and read by every worker at the start of each job to call `torch.set_num_threads(n)`. After every scale event the manager writes `cpu_count // alive_workers` into this value. The result:
 
    | Alive workers | Threads per worker | Total threads in use |
    |---|---|---|
@@ -181,14 +171,9 @@ The `WorkerManager` applies two corrections when no CUDA device is detected:
    | 2 | `cpu_count // 2` | `cpu_count` (±1) |
    | N | `cpu_count // N` | `cpu_count` (±N−1) |
 
-   A single idle worker uses all cores. As demand grows and more workers are spawned,
-   each worker's thread slice shrinks — individual jobs run slower — but aggregate
-   throughput increases because N workers process N jobs in parallel. Scale-down
-   restores the full thread budget to the remaining workers automatically.
+   A single idle worker uses all cores. As demand grows and more workers are spawned, each worker's thread slice shrinks — individual jobs run slower — but aggregate throughput increases because N workers process N jobs in parallel. Scale-down restores the full thread budget to the remaining workers automatically.
 
-   This behaviour is a no-op on GPU hosts: `_available_cpu_count()` returns 0 when
-   `torch.cuda.is_available()` is true, and `_update_threads_per_worker` skips the
-   update entirely.
+   This behaviour is a no-op on GPU hosts: `_available_cpu_count()` returns 0 when `torch.cuda.is_available()` is true, and `_update_threads_per_worker` skips the update entirely.
 
 ### 5.5 Scaling out
 
