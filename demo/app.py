@@ -122,7 +122,8 @@ with gr.Blocks(title='Stegosaurus') as demo:
 
             cover_output = gr.Textbox(
                 label='Cover text',
-                lines=10,
+                lines=3,
+                max_lines=50,
                 interactive=False,
                 elem_id='cover-output',
             )
