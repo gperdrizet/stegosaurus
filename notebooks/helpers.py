@@ -1,11 +1,39 @@
 '''Shared helpers for Stegosaurus scaling experiment notebooks.'''
 
+import json
 import statistics
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 
 from gradio_client import Client
+
+
+# ---------------------------------------------------------------------------
+# Data persistence
+# ---------------------------------------------------------------------------
+
+DATA_DIR = Path(__file__).parent / 'data'
+DATA_DIR.mkdir(exist_ok=True)
+
+
+def save_data(filename: str, data) -> None:
+    '''Save any JSON-serializable object to DATA_DIR/<filename>.'''
+    path = DATA_DIR / filename
+    with open(path, 'w') as f:
+        json.dump(data, f, indent=2)
+    n = len(data) if hasattr(data, '__len__') else ''
+    print(f'Saved {n} to {path}')
+
+
+def load_data(filename: str):
+    '''Load a previously saved data file. Returns None if not found.'''
+    path = DATA_DIR / filename
+    if path.exists():
+        with open(path) as f:
+            return json.load(f)
+    return None
 
 
 # ---------------------------------------------------------------------------
