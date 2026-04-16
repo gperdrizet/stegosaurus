@@ -1,0 +1,187 @@
+{
+  "cpu_baseline_rows": [
+    {
+      "concurrency": 1,
+      "n": 10,
+      "min_s": 18.86,
+      "median_s": 19.36,
+      "p95_s": 19.91,
+      "max_s": 19.91,
+      "throughput_rps": 0.05
+    },
+    {
+      "concurrency": 2,
+      "n": 10,
+      "min_s": 19.7,
+      "median_s": 20.01,
+      "p95_s": 20.71,
+      "max_s": 20.71,
+      "throughput_rps": 0.1
+    },
+    {
+      "concurrency": 4,
+      "n": 10,
+      "min_s": 19.81,
+      "median_s": 23.15,
+      "p95_s": 23.68,
+      "max_s": 23.68,
+      "throughput_rps": 0.15
+    },
+    {
+      "concurrency": 8,
+      "n": 10,
+      "min_s": 20.22,
+      "median_s": 35.08,
+      "p95_s": 35.53,
+      "max_s": 35.53,
+      "throughput_rps": 0.18
+    }
+  ],
+  "message_size_rows_cpu": [
+    {
+      "message_len": 1,
+      "n": 10,
+      "min_s": 10.72,
+      "median_s": 11.64,
+      "p95_s": 14.52,
+      "max_s": 14.52,
+      "throughput_rps": 0.08
+    },
+    {
+      "message_len": 2,
+      "n": 10,
+      "min_s": 10.23,
+      "median_s": 10.67,
+      "p95_s": 12.35,
+      "max_s": 12.35,
+      "throughput_rps": 0.09
+    },
+    {
+      "message_len": 4,
+      "n": 10,
+      "min_s": 21.85,
+      "median_s": 23.03,
+      "p95_s": 30.18,
+      "max_s": 30.18,
+      "throughput_rps": 0.04
+    },
+    {
+      "message_len": 8,
+      "n": 10,
+      "min_s": 30.17,
+      "median_s": 30.73,
+      "p95_s": 31.74,
+      "max_s": 31.74,
+      "throughput_rps": 0.03
+    },
+    {
+      "message_len": 16,
+      "n": 10,
+      "min_s": 52.02,
+      "median_s": 121.04,
+      "p95_s": 166.35,
+      "max_s": 166.35,
+      "throughput_rps": 0.01
+    },
+    {
+      "message_len": 32,
+      "n": 10,
+      "min_s": 176.85,
+      "median_s": 191.74,
+      "p95_s": 299.05,
+      "max_s": 299.05,
+      "throughput_rps": 0.0
+    },
+    {
+      "message_len": 64,
+      "n": 10,
+      "min_s": 300.04,
+      "median_s": 300.08,
+      "p95_s": 300.09,
+      "max_s": 300.09,
+      "throughput_rps": 0.0
+    }
+  ],
+  "thread_sweep_rows": [
+    {
+      "n_workers": 1,
+      "threads_per_worker": 24,
+      "n": 10,
+      "min_s": 30.17,
+      "median_s": 33.13,
+      "p95_s": 40.18,
+      "max_s": 40.18,
+      "throughput_rps": 0.03
+    },
+    {
+      "n_workers": 2,
+      "threads_per_worker": 12,
+      "n": 10,
+      "min_s": 9.0,
+      "median_s": 9.22,
+      "p95_s": 9.99,
+      "max_s": 9.99,
+      "throughput_rps": 0.11
+    },
+    {
+      "n_workers": 3,
+      "threads_per_worker": 8,
+      "n": 10,
+      "min_s": 8.69,
+      "median_s": 8.86,
+      "p95_s": 9.59,
+      "max_s": 9.59,
+      "throughput_rps": 0.11
+    },
+    {
+      "n_workers": 4,
+      "threads_per_worker": 6,
+      "n": 10,
+      "min_s": 8.74,
+      "median_s": 8.94,
+      "p95_s": 9.59,
+      "max_s": 9.59,
+      "throughput_rps": 0.11
+    },
+    {
+      "n_workers": 6,
+      "threads_per_worker": 4,
+      "n": 10,
+      "min_s": 9.54,
+      "median_s": 9.64,
+      "p95_s": 10.44,
+      "max_s": 10.44,
+      "throughput_rps": 0.1
+    },
+    {
+      "n_workers": 8,
+      "threads_per_worker": 3,
+      "n": 10,
+      "min_s": 10.34,
+      "median_s": 10.49,
+      "p95_s": 11.25,
+      "max_s": 11.25,
+      "throughput_rps": 0.09
+    },
+    {
+      "n_workers": 12,
+      "threads_per_worker": 2,
+      "n": 10,
+      "min_s": 12.14,
+      "median_s": 12.42,
+      "p95_s": 12.84,
+      "max_s": 12.84,
+      "throughput_rps": 0.08
+    },
+    {
+      "n_workers": 24,
+      "threads_per_worker": 1,
+      "n": 10,
+      "min_s": 18.56,
+      "median_s": 18.75,
+      "p95_s": 19.55,
+      "max_s": 19.55,
+      "throughput_rps": 0.05
+    }
+  ]
+}

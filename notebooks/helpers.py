@@ -3,10 +3,12 @@
 import json
 import statistics
 import subprocess
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
+import pandas as pd
 from gradio_client import Client
 
 
@@ -16,6 +18,9 @@ from gradio_client import Client
 
 DATA_DIR = Path(__file__).parent / 'data'
 DATA_DIR.mkdir(exist_ok=True)
+
+FIGURES_DIR = Path(__file__).parent / 'figures'
+FIGURES_DIR.mkdir(exist_ok=True)
 
 
 def save_data(filename: str, data) -> None:
@@ -123,3 +128,108 @@ def sample_workers(stop_event, samples: list, sample_interval_s: float = 1.0):
     while not stop_event.is_set():
         samples.append((time.perf_counter() - t0, count_workers()))
         time.sleep(sample_interval_s)
+
+
+def run_sweep_step(
+    data_key: str,
+    run_flag: bool,
+    app_url: str,
+    prompt: str,
+    message: str,
+    n_requests: int,
+    concurrency: int,
+    extra_fields: dict | None = None,
+    sort_by: str | None = None,
+):
+    '''Load or run one step of an incremental worker-count sweep.
+
+    When run_flag is False: loads existing rows from scaling_data.json and
+    returns a DataFrame (or None if no saved data is found).
+    When run_flag is True: fires a burst, appends a new row (extra_fields +
+    summarize stats), saves, and returns the updated DataFrame.
+    '''
+    _d = load_data('scaling_data.json') or {}
+
+    if not run_flag:
+        rows = _d.get(data_key)
+        if rows:
+            df = pd.DataFrame(rows)
+            if sort_by:
+                df = df.sort_values(sort_by).reset_index(drop=True)
+            print(f'Loaded {len(df)} rows from scaling_data.json')
+            return df
+        print(f'run_flag=False and no saved data found for "{data_key}".')
+        return None
+
+    rows = _d.get(data_key) or []
+    times, wall = burst(app_url, prompt, message, n_requests, concurrency)
+    rows.append({**(extra_fields or {}), **summarize(times, wall)})
+    _d[data_key] = rows
+    save_data('scaling_data.json', _d)
+    df = pd.DataFrame(rows)
+    if sort_by:
+        df = df.sort_values(sort_by).reset_index(drop=True)
+    return df
+
+
+def run_scaling_trace(
+    app_url: str,
+    prompt: str,
+    message: str,
+    n_requests: int,
+    concurrency: int,
+    sample_interval_s: float = 1.0,
+    quiesce_stable_s: float = 10.0,
+    quiesce_timeout_s: float = 180.0,
+):
+    '''Fire a burst of requests while recording worker-process count over time.
+
+    Starts a background sampler, waits 3 s to establish a baseline, fires
+    the burst, then waits for the pool to quiesce back to baseline.
+
+    Returns:
+        samples   -- list of (elapsed_s, worker_count) tuples
+        burst_wall -- wall-clock seconds the burst took
+    '''
+    samples = []
+    stop_event = threading.Event()
+    sampler = threading.Thread(
+        target=sample_workers,
+        args=(stop_event, samples, sample_interval_s),
+        daemon=True,
+    )
+
+    print('Sampling worker count before burst…')
+    sampler.start()
+    time.sleep(3)
+
+    baseline_count = samples[-1][1] if samples else 1
+    print(f'Baseline worker count: {baseline_count}')
+
+    print(f'Firing burst: {n_requests} requests at concurrency {concurrency}')
+    _, burst_wall = burst(app_url, prompt, message, n_requests, concurrency)
+    print(f'Burst complete in {burst_wall:.1f}s. Waiting for pool to quiesce…')
+
+    prev_count = None
+    stable_since = time.perf_counter()
+    quiesce_deadline = time.perf_counter() + quiesce_timeout_s
+
+    while True:
+        time.sleep(sample_interval_s)
+        current = count_workers()
+
+        if current != prev_count:
+            stable_since = time.perf_counter()
+            prev_count = current
+
+        if current <= baseline_count and (time.perf_counter() - stable_since) >= quiesce_stable_s:
+            break
+
+        if time.perf_counter() >= quiesce_deadline:
+            print(f'Warning: quiesce timeout reached; last count was {current} (baseline {baseline_count})')
+            break
+
+    stop_event.set()
+    sampler.join()
+    print(f'Done. Collected {len(samples)} samples.')
+    return samples, burst_wall
