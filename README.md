@@ -13,7 +13,7 @@ short_description: Hide secret messages inside generated text
 
 Hide secret messages inside naturally-generated text using a large language model. A message is encoded into cover text by steering next-token selection at each step; a recipient with the same model can recover the original message deterministically. See the [technical whitepaper](https://github.com/gperdrizet/stegosaurus/blob/main/docs/whitepaper.md) for how it works and Ziegler et al., (2019) "[*Neural Linguistic Steganography*](https://aclanthology.org/D19-1115/)" for the inspiration.
 
-**Live demo:** [huggingface.co/spaces/gperdrizet/stegosaurus](https://huggingface.co/spaces/gperdrizet/stegosaurus)
+**Live demo:** [hypotext.app](https://hypotext.app)
 
 
 ## 1. Run the app locally
