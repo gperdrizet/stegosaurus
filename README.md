@@ -3,8 +3,8 @@ title: Stegosaurus
 emoji: 🦕
 colorFrom: green
 colorTo: blue
-sdk: gradio
-app_file: demo/app.py
+sdk: docker
+app_port: 8080
 pinned: true
 short_description: Hide secret messages inside generated text
 ---
@@ -41,9 +41,10 @@ pip install -r requirements-dev.txt
 python demo/app.py
 ```
 
+Open `http://localhost:8080` in a browser.
+
 
 ## 2. Development setup
-
 
 ### 2.1. Using a dev container (recommended)
 Open the repo in VS Code and choose *Reopen in Container*. VS Code will prompt you to select a configuration:
@@ -60,20 +61,17 @@ pip install -r requirements-dev.txt
 ```
 
 
-### 2.3. CUDA version
+### 2.3. Dev notes
 
-By default, `requirements-dev.txt` installs a CUDA 12.6 wheel for wide GPU compatibility (Pascal and later). If you have a newer GPU, you can update it to CUDA 12.8 or 13x for a slight improvement in performance.
+**CUDA version:** `requirements-dev.txt` installs a CUDA 12.6 wheel for wide GPU compatibility (Pascal and later). If you have a newer GPU, you can update it to CUDA 12.8 or 13x for a slight performance improvement.
 
-
-### 2.4. Hugging Face authentication
-
-If a `.env` file exists in the repo root, the dev container will automatically load it into the container environment. This is the recommended way to supply `HF_TOKEN` to avoid unauthenticated HuggingFace Hub requests:
+**Hugging Face authentication:** If a `.env` file exists in the repo root, the dev container will automatically load it. This is the recommended way to supply `HF_TOKEN` and avoid unauthenticated HuggingFace Hub requests:
 
 ```
 HF_TOKEN=hf_your_token_here
 ```
 
-Generate a token at huggingface.co → Settings → Access Tokens (Read scope is sufficient). The `.env` file is gitignored and never committed. On GitHub Codespaces, set `HF_TOKEN` as a Codespaces secret instead.
+Generate a token at huggingface.co → Settings → Access Tokens (Read scope is sufficient). The `.env` file is gitignored. On GitHub Codespaces, set `HF_TOKEN` as a Codespaces secret instead.
 
 
 ## 3. Architecture
@@ -181,8 +179,6 @@ make deploy-hf  # force push main to the HF Space
 
 See [Deploying Stegosaurus to Hugging Face Spaces](https://github.com/gperdrizet/stegosaurus/blob/main/docs/deployment_options/HF-spaces.md) for detailed set-up instructions.
 
-Requires an `HF_TOKEN` in `.env` (generate at huggingface.co → Settings → Access tokens, with Write scope).
-
 ### 7.3. Google Cloud Run
 
 The Docker image build is configured for deployment to Google Cloud Run via and an artifact registry. To push a new image build:
@@ -193,4 +189,4 @@ make push-gcp
 
 Requires `GCP_PROJECT_ID` in `.env`.
 
-See [Deploying Stegosaurus to Google Cloud Run](github.com/gperdrizet/stegosaurus/blob/main/docs/deployment_options/GCP-cloudrun.md) for detailed set-up instructions.
+See [Deploying Stegosaurus to Google Cloud Run](https://github.com/gperdrizet/stegosaurus/blob/main/docs/deployment_options/GCP-cloudrun.md) for detailed set-up instructions.
